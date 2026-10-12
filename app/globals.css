@@ -1,26 +1,120 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  --font-serif: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  --font-sans: "Aptos", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  --color-charcoal: #0a0a0b;
+  --color-charcoal-light: #111113;
+  --color-charcoal-muted: #18181b;
+  --color-ivory: #f2eee7;
+  --color-ivory-warm: #111113;
+  --color-ivory-dark: #18181b;
+  --color-champagne: #c6a875;
+  --color-champagne-light: #d4bd91;
+  --color-champagne-dark: #c6a875;
+  --color-champagne-muted: rgb(198 168 117 / 12%);
+  --color-background: #0a0a0b;
+  --color-foreground: #f2eee7;
+  --color-surface: #111113;
+  --color-elevated: #18181b;
+  --color-accent: #c6a875;
+  --color-accent-hover: #d4bd91;
+  --color-muted: #a7a19a;
+  --color-border: #303034;
+  --color-neutral-50: #111113;
+  --color-neutral-100: #18181b;
+  --color-neutral-200: #303034;
+  --color-neutral-300: #45454a;
+  --color-neutral-400: #77736f;
+  --color-neutral-500: #a7a19a;
+  --color-neutral-600: #b8b2ab;
+  --color-neutral-700: #d0ccc5;
+  --color-neutral-800: #e2ddd5;
+  --color-neutral-900: #f2eee7;
+  --spacing-section: 7.5rem;
+  --spacing-section-sm: 4.5rem;
+  --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+html { color-scheme: dark; scroll-behavior: smooth; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+section[id], main[id] { scroll-margin-top: 6rem; }
+body { min-height: 100vh; background: #0a0a0b; color: #f2eee7; font-family: var(--font-sans); line-height: 1.65; letter-spacing: -0.01em; }
+h1, h2, h3, h4 { color: #f2eee7; font-family: var(--font-serif); font-weight: 500; line-height: 1.08; letter-spacing: -0.025em; }
+::selection { background: rgb(198 168 117 / 30%); color: #f2eee7; }
+:focus-visible { outline: 2px solid #c6a875; outline-offset: 4px; }
+input, select, textarea, button { font: inherit; }
+input:not([type="checkbox"]):not([type="radio"]), select, textarea { border-color: #45454a; background-color: #111113; color: #f2eee7; }
+input:not([type="checkbox"]):not([type="radio"]), select { min-height: 44px; }
+input::placeholder, textarea::placeholder { color: #a7a19a; opacity: 1; }
+input[type="checkbox"], input[type="radio"] { accent-color: #c6a875; }
+input[type="date"], input[type="time"], input[type="datetime-local"] { color-scheme: dark; }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+.section-padding { padding-block: var(--spacing-section-sm); }
+@media (min-width: 768px) { .section-padding { padding-block: var(--spacing-section); } }
+.eyebrow { color: #c6a875; font-size: 0.66rem; font-weight: 600; letter-spacing: 0.17em; line-height: 1.2; text-transform: uppercase; }
+.btn-primary, .btn-secondary, .btn-dark { display: inline-flex; min-height: 48px; align-items: center; justify-content: center; gap: 0.55rem; padding: 0.8rem 1.35rem; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.035em; text-decoration: none; cursor: pointer; transition: background-color 220ms ease, border-color 220ms ease, color 220ms ease, transform 220ms ease; }
+.btn-primary { border: 1px solid #c6a875; background: #c6a875; color: #0a0a0b; }
+.btn-primary:hover { border-color: #d4bd91; background: #d4bd91; transform: translateY(-1px); }
+.btn-secondary { border: 1px solid #555157; background: transparent; color: #f2eee7; }
+.btn-secondary:hover { border-color: #c6a875; color: #d4bd91; }
+.btn-dark { border: 1px solid #f2eee7; background: #f2eee7; color: #0a0a0b; }
+.btn-primary:disabled, .btn-secondary:disabled, .btn-dark:disabled { cursor: not-allowed; opacity: 0.5; transform: none; }
+/* Compact header action. The filled button's own padding cannot be overridden by
+   a Tailwind utility (unlayered CSS outranks the utilities layer), so the header
+   needs its own smaller-padding variant to leave room for the brand on a 320px
+   screen. It is still a full 44px touch target. */
+.btn-header { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; gap: 0.4rem; padding: 0.4rem 0.8rem; border: 1px solid #c6a875; background: #c6a875; color: #0a0a0b; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.03em; text-decoration: none; cursor: pointer; transition: background-color 220ms ease, border-color 220ms ease; }
+.btn-header:hover { border-color: #d4bd91; background: #d4bd91; }
+.btn-header:focus-visible { outline: 2px solid #c6a875; outline-offset: 3px; }
+.surface-panel { border: 1px solid #303034; background: #111113; }
+.form-control { width: 100%; min-height: 46px; border: 1px solid #45454a; border-radius: 0; background: #111113; padding: 0.7rem 0.8rem; color: #f2eee7; }
+.form-control::placeholder { color: #a7a19a; }
+.form-control:focus { border-color: #c6a875; outline: 2px solid rgb(198 168 117 / 35%); outline-offset: 1px; }
+
+/* --- Mobile foundations ------------------------------------------------- */
+
+/* Let the browser manage pinch-zoom and text scaling rather than fighting it. */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+/* Remove the 300ms double-tap delay on touch devices. */
+a, button, [role="button"], input, select, textarea, label { touch-action: manipulation; }
+
+/* Keep fixed bars and full-screen overlays clear of notches and home bars. */
+.safe-x {
+  padding-left: max(1.25rem, env(safe-area-inset-left));
+  padding-right: max(1.25rem, env(safe-area-inset-right));
+}
+@media (min-width: 640px) {
+  .safe-x { padding-left: max(2rem, env(safe-area-inset-left)); padding-right: max(2rem, env(safe-area-inset-right)); }
+}
+.safe-area-menu {
+  padding-top: max(6rem, env(safe-area-inset-top));
+  padding-bottom: max(2rem, env(safe-area-inset-bottom));
+  overscroll-behavior: contain;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-}
+/* Long-form content should not be able to push the page sideways. `break-word`
+   only breaks a word that would otherwise overflow, so headings stay intact. */
+h1, h2, h3, h4, p, li, dd, dt { overflow-wrap: break-word; }
+
+/* Modals and drawers must not chain their scroll to the page behind. */
+[role="dialog"] { overscroll-behavior: contain; }
+
+.marquee-viewport { width: 100%; overflow: hidden; contain: paint; }
+.marquee-track { display: flex; width: max-content; animation: salon-marquee 56s linear infinite; will-change: transform; }
+.marquee-viewport:hover .marquee-track, .marquee-viewport:focus-within .marquee-track { animation-play-state: paused; }
+.marquee-group { display: flex; flex: none; gap: 1rem; padding-right: 1rem; }
+.marquee-photo { position: relative; width: clamp(13rem, 27vw, 23rem); height: clamp(9rem, 18vw, 14rem); flex: none; overflow: hidden; background: #18181b; }
+.marquee-photo-high { transform: translateY(-0.2rem) rotate(-1deg); }
+.marquee-photo-low { transform: translateY(0.3rem) rotate(0.8deg); }
+@keyframes salon-marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) { .marquee-track { animation: none; } }
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: #0a0a0b; }
+::-webkit-scrollbar-thumb { border: 2px solid #0a0a0b; background: #45454a; }
+::-webkit-scrollbar-thumb:hover { background: #77736f; }

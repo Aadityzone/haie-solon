@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2017",
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -19,7 +23,9 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": [
+        "./*"
+      ]
     }
   },
   "include": [
@@ -28,7 +34,25 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
-    "**/*.mts"
+    "**/*.mts",
+    ".build/types/**/*.ts",
+    ".build/dev/types/**/*.ts",
+    ".playwright/build/types/**/*.ts",
+    ".playwright/build/dev/types/**/*.ts",
+    ".playwright/build-verify1/types/**/*.ts",
+    ".playwright/build-verify1/dev/types/**/*.ts",
+    ".playwright/build-check/types/**/*.ts",
+    ".playwright/build-check/dev/types/**/*.ts",
+    ".playwright/build-verify2/types/**/*.ts",
+    ".playwright/build-verify2/dev/types/**/*.ts",
+    ".playwright/build-verify3/types/**/*.ts",
+    ".playwright/build-verify3/dev/types/**/*.ts",
+    ".playwright/build-verify4/types/**/*.ts",
+    ".playwright/build-verify4/dev/types/**/*.ts",
+    ".playwright/build-final1/types/**/*.ts",
+    ".playwright/build-final1/dev/types/**/*.ts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules"
+  ]
 }

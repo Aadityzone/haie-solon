@@ -12,10 +12,16 @@
 
 # testing
 /coverage
+/test-results/
+/playwright-report/
+/blob-report/
+/.playwright/
 
 # next.js
 /.next/
 /out/
+# Alternate build output (see NEXT_DIST_DIR in next.config.ts).
+/.build/
 
 # production
 /build
@@ -33,9 +39,21 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# local libSQL/SQLite databases: these hold real salon and customer records and
+# must never be committed. Production uses DATABASE_URL/DATABASE_AUTH_TOKEN.
+/salon.db
+/salon.db-journal
+/salon.db-wal
+/salon.db-shm
+
 # vercel
 .vercel
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+
+!.env.example
+
+.vercel

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createBookingRequest } from "@/lib/booking-service";
+import { databaseErrorContext } from "@/lib/db";
 import { isUserFacing, stripInternalCode } from "@/lib/errors";
 import { logError } from "@/lib/logger";
 
@@ -76,7 +77,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error: unknown) {
-    logError("booking.create", error);
+    logError("booking.create", error, databaseErrorContext(error));
     const message = error instanceof Error ? error.message : "";
     const isSlotConflict = message.includes("SLOT_UNAVAILABLE") || message.includes("SLOT_BLOCKED");
 

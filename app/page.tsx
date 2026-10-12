@@ -8,10 +8,15 @@ import Contact from "@/components/Contact";
 import Footer from "@/components/Footer";
 
 /**
- * The homepage renders the owner-configured service catalogue. Revalidate keeps
- * the page statically served while picking up owner edits to the menu.
+ * The homepage renders the owner-configured service catalogue.
+ *
+ * It is rendered per request rather than prerendered. Turso/libSQL credentials
+ * may exist only in the runtime environment, not at build time, so a prerendered
+ * build can bake "the menu could not be loaded" into the static HTML and keep
+ * serving it long after the database is reachable. Rendering on request also
+ * means an owner's edit is visible immediately, with no cache window to wait out.
  */
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 export default function Home() {
   return (

@@ -160,6 +160,103 @@ test("owner session signatures reject tampering", () => {
   assert.equal(verifySessionToken(`${token}x`).valid, false);
 });
 
+test("database configuration is explicit, aliased, and diagnosable", async (t) => {
+  const db = require("../lib/db.ts");
+
+  await t.test("a hosted URL is preferred over the local file and reports its own source", () => {
+    const saved = { ...process.env };
+    try {
+      process.env.DATABASE_URL = "libsql://example-db.turso.io";
+      process.env.DATABASE_AUTH_TOKEN = "token-from-database-url";
+      const described = db.describeDatabase();
+      assert.equal(described.mode, "hosted");
+      assert.equal(described.source, "DATABASE_URL");
+      assert.equal(described.host, "example-db.turso.io");
+      // The description is log-safe: it must never carry the token.
+      assert.equal(JSON.stringify(described).includes("token-from-database-url"), false);
+    } finally {
+      process.env = saved;
+    }
+  });
+
+  await t.test("the Turso CLI variable names are accepted as an alias", () => {
+    const saved = { ...process.env };
+    try {
+      delete process.env.DATABASE_URL;
+      process.env.TURSO_DATABASE_URL = "libsql://turso-named-db.turso.io";
+      const described = db.describeDatabase();
+      assert.equal(described.mode, "hosted");
+      assert.equal(described.source, "TURSO_DATABASE_URL");
+      assert.equal(described.host, "turso-named-db.turso.io");
+    } finally {
+      process.env = saved;
+    }
+  });
+
+  await t.test("a file URL stays local even when it arrives in DATABASE_URL", () => {
+    const saved = { ...process.env };
+    try {
+      process.env.DATABASE_URL = "file:./some-local.db";
+      const described = db.describeDatabase();
+      assert.equal(described.mode, "local-file");
+      assert.equal(described.source, "DATABASE_URL");
+      assert.equal(described.host, null);
+    } finally {
+      process.env = saved;
+    }
+  });
+
+  await t.test("a missing database still resolves, so a build can never be broken by configuration", () => {
+    const saved = { ...process.env };
+    try {
+      delete process.env.DATABASE_URL;
+      delete process.env.TURSO_DATABASE_URL;
+      delete process.env.LIBSQL_URL;
+      delete process.env.SALON_DB_PATH;
+      process.env.VERCEL_ENV = "production";
+      delete global.__salonDbClient;
+      // Resolution must succeed even on serverless with nothing configured: a
+      // build machine may legitimately have no database, and failing here would
+      // turn a runtime misconfiguration into an undeployable commit.
+      const described = db.describeDatabase();
+      assert.equal(described.source, "local-default");
+      assert.equal(described.mode, "local-file");
+      assert.ok(db.getDb(), "a client is still returned; the failure surfaces at query time");
+    } finally {
+      process.env = saved;
+      delete global.__salonDbClient;
+    }
+  });
+
+  await t.test("an unopenable local file is translated into a useful log line", async () => {
+    const saved = { ...process.env };
+    try {
+      delete process.env.VERCEL_ENV;
+      process.env.SALON_DB_PATH = path.join(temp, "no-such-directory", "salon.db");
+      delete global.__salonDbClient;
+      let thrown;
+      try {
+        await db.getDb().execute("SELECT 1");
+      } catch (error) {
+        thrown = error;
+      }
+      assert.ok(thrown, "an unopenable file must throw");
+      const context = db.databaseErrorContext(thrown);
+      assert.equal(context.databaseMode, "local-file");
+      assert.match(context.databaseError, /SQLITE_CANTOPEN|error 14/i);
+      // This is the line an operator reads in a hosting provider's log: it must
+      // say what the failure means and which variables remove it.
+      assert.match(context.databaseError, /no hosted database is configured/i);
+      assert.equal(context.databaseSource, "SALON_DB_PATH");
+      // Connection context never carries a token or a URL with credentials.
+      assert.equal(JSON.stringify(context).includes("token"), false);
+    } finally {
+      process.env = saved;
+      delete global.__salonDbClient;
+    }
+  });
+});
+
 test("the public catalogue is controlled by the owner's availability flag alone", async () => {
   // Notifications are fired without being awaited. With no credentials the
   // integration records a single SKIPPED attempt instead of retrying a live

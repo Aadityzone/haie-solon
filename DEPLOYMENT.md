@@ -39,8 +39,61 @@ real value.
 | --- | --- |
 | `AUTH_SECRET` | Signs owner session cookies. Generate a long random value (32+ chars). The app **refuses to start authenticated sessions in production** without it. |
 | `OWNER_SETUP_TOKEN` | One-time token that authorises creating the first owner password at `/owner/login`. Remove it from the environment once the password exists. |
-| `DATABASE_URL` | `file:./salon.db` for a local file, or `libsql://…` for hosted Turso. |
+| `DATABASE_URL` | `file:./salon.db` for a local file, or `libsql://…` for hosted Turso. **`file:` is local-only and must not be used on serverless hosting.** |
 | `DATABASE_AUTH_TOKEN` | Required for hosted Turso. Not needed for a local file. |
+
+### Database aliases
+
+`DATABASE_URL` wins when more than one is present. These alternatives exist
+because the Turso CLI and Vercel's Turso integration set different names for the
+same values, and a deployment that sets only those names used to fall back to an
+unusable local file:
+
+| Variable | Purpose |
+| --- | --- |
+| `TURSO_DATABASE_URL` | Alias for the hosted URL. |
+| `TURSO_AUTH_TOKEN` | Alias for the database token. |
+| `LIBSQL_URL` | Alias for the hosted URL only. |
+
+### Serverless deployments
+
+A local `file:` database **cannot** work on Vercel or any other serverless host:
+the deployment bundle is read-only, and each function instance gets its own
+temporary filesystem, so the catalogue would be unreadable in one instance and
+absent in the next. The fallback is still resolved rather than refused, because a
+build machine may legitimately have no database — refusing there would make a
+misconfigured environment undeployable instead of merely broken.
+
+The failure therefore surfaces at query time, and it is named there. Every route
+that reads the database (`booking.services`, `booking.config`, `booking.slots`,
+`booking.create`, `booking.status`) and the homepage menu
+(`home.service-menu`) logs one structured line carrying `databaseSource` (which
+variable supplied the URL, or `missing`), `databaseMode` (`hosted` or
+`local-file`), `databaseHost`, and `databaseError` — never a token, and never a
+URL with credentials. When the file cannot be opened, `databaseError` says so in
+words:
+
+```
+{"level":"error","scope":"booking.services","message":"ConnectionFailed(...: 14)",
+ "databaseSource":"local-default","databaseMode":"local-file",
+ "databaseError":"libSQL could not open the database (SQLite error 14, SQLITE_CANTOPEN).
+  In production this means no hosted database is configured and the local file cannot be used."}
+```
+
+`databaseSource: "missing"` or `"local-default"` in a production log means the
+hosted database variables did not reach the runtime. A `databaseSource` of
+`DATABASE_URL` with a `databaseHost` means the URL arrived and the failure is the
+URL or the token itself.
+
+### Why the homepage is rendered per request
+
+`app/page.tsx` sets `dynamic = "force-dynamic"`. The homepage menu comes from the
+same database, and database credentials may exist only in the runtime environment
+and not at build time. A prerendered homepage can therefore bake "the menu could
+not be loaded" into static HTML and keep serving it long after the database is
+reachable. Rendering on request removes that possibility, and it also means an
+owner's menu edit is visible immediately rather than after a cache window.
+
 
 ### Optional
 
@@ -72,19 +125,45 @@ reason.
 
 ## 4. Database setup and schema
 
+### Pointing production at a hosted database (Turso)
+
+This is the step that a Vercel deployment is most likely to be missing, and the
+symptom is `/api/booking/services` answering `500 {"success":false,"error":"Failed
+to load services"}`.
+
+1. Create the database: `turso db create <name>` (or use any libSQL provider).
+2. Read the connection URL: `turso db show <name> --url` → `libsql://<name>-<org>.turso.io`.
+3. Create a token: `turso db tokens create <name>`.
+4. In Vercel → Project → Settings → Environment Variables, add for **Production,
+   Preview, and Development**:
+   - `DATABASE_URL` = the `libsql://…` URL
+   - `DATABASE_AUTH_TOKEN` = the token
+   - `AUTH_SECRET` = a long random value
+   - `OWNER_SETUP_TOKEN` = a private one-time value
+   (or the equivalent `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` pair)
+5. Redeploy so the new variables reach the running functions.
+6. Confirm: `GET /api/booking/services` must return `{"success":true,"services":[…]}`
+   with the catalogue, and `/book` must show step 1 with service cards.
+7. Open `/owner/login` and create the owner password, then remove
+   `OWNER_SETUP_TOKEN` from the environment.
+
+The schema and the standard service catalogue are created automatically on the
+first successful database access — there is no separate migration command to run.
+
 There is no separate migration tool. `initDb()` runs on the first database access
 and applies an idempotent schema:
 
 - `CREATE TABLE IF NOT EXISTS` for `services`, `salon_hours`, `blocked_periods`,
   `appointments`, `appointment_services`, `notification_logs`, `owner_settings`.
 - Additive `ALTER TABLE` guards for later columns (`appointments.whatsapp_opt_in`,
-  `notification_logs.provider_message_id`, `services.image_url`).
-- Seeding only when a table is empty: seven days of opening hours, a proposed
-  service catalogue, and default booking rules.
-
-Seeded services are **inactive with no price**. The proposed figures live in
-`config/service-catalogue.ts` and are shown to the owner as suggestions; they are
-never published until the owner sets a price and enables the service.
+  `notification_logs.provider_message_id`, `services.image_url`,
+  `services.price_verified`).
+- Seven days of opening hours and the default booking rules are seeded only when
+  their tables are empty.
+- The standard service catalogue is installed as ordinary, owner-editable rows:
+  the proposed price is used as the starting price, and `services.price_verified`
+  stays `0` so every customer surface labels that figure as **proposed** until the
+  owner saves the row. An existing row is never force-enabled or re-priced.
 
 `salon.db` is gitignored and must never be committed — it holds real customer
 records.
@@ -94,7 +173,7 @@ records.
 | Hosting | Database |
 | --- | --- |
 | Single long-lived server or VM | Local `file:./salon.db` is fine. Back it up (below). |
-| Vercel/serverless, or more than one instance | Hosted Turso. A local file does not work: each instance would get its own copy. |
+| Vercel/serverless, or more than one instance | Hosted Turso. A local file does not work: the bundle is read-only and each instance would get its own copy. |
 
 ## 5. Owner account initialisation
 
@@ -193,8 +272,8 @@ port with `PLAYWRIGHT_PORT` if 3210 is taken.
 - **Notifications are fire-and-forget.** A provider outage cannot fail a booking,
   which is intentional, but it also means a notification failure is only visible
   in the dashboard log rather than retried indefinitely.
-- **The homepage menu is statically cached with a 60-second revalidate window**,
-  refreshed immediately whenever the owner saves a service.
+- **The homepage menu is rendered per request**, so it always reads the live
+  catalogue and shows an owner's edit immediately.
 - **No automated off-site backups are configured.** See section 9.
 
 ## 12. Security notes

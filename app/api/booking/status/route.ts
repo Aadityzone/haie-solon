@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAppointmentByReference } from "@/lib/booking-service";
+import { databaseErrorContext } from "@/lib/db";
 import { normalizeIndianPhone, utcIsoToIstParts } from "@/lib/time-utils";
 import { logError } from "@/lib/logger";
 
@@ -70,7 +71,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error: unknown) {
-    logError("booking.status", error);
+    logError("booking.status", error, databaseErrorContext(error));
     return NextResponse.json(
       { success: false, error: "Could not look up that booking right now. Please try again." },
       { status: 500 }

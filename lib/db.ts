@@ -9,14 +9,150 @@ declare global {
   var __salonDbInitPromise: Promise<void> | undefined;
 }
 
-const dbPath = process.env.SALON_DB_PATH || path.join(process.cwd(), "salon.db");
+/**
+ * A configuration problem the operator can act on, as opposed to a query that
+ * failed. The message is written to be read in a hosting provider's log.
+ */
+export class DatabaseConfigError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "DatabaseConfigError";
+  }
+}
+
+interface ResolvedDatabase {
+  /** The URL handed to libSQL. A secret never appears here: hosted URLs carry no credentials. */
+  url: string;
+  authToken: string | undefined;
+  /** Which variable supplied the URL, for diagnostics. */
+  source: string;
+  /** True when this is a local file rather than a hosted database. */
+  isLocalFile: boolean;
+}
+
+/**
+ * Decides where the application stores its data, from the environment.
+ *
+ * A hosted libSQL/Turso database is preferred and is the only mode that works on
+ * serverless hosting, where the bundle directory is read-only and each instance
+ * has its own private filesystem. `DATABASE_URL` wins; `TURSO_DATABASE_URL` and
+ * `LIBSQL_URL` are accepted because the Turso CLI and Vercel's Turso
+ * integration set those names instead.
+ */
+function resolveDatabase(): ResolvedDatabase {
+  const hostedCandidates: [string, string | undefined][] = [
+    ["DATABASE_URL", process.env.DATABASE_URL],
+    ["TURSO_DATABASE_URL", process.env.TURSO_DATABASE_URL],
+    ["LIBSQL_URL", process.env.LIBSQL_URL],
+  ];
+
+  for (const [name, value] of hostedCandidates) {
+    const trimmed = value?.trim();
+    if (!trimmed) continue;
+    // `file:` URLs are the local mode; treat them as such rather than as hosted.
+    if (trimmed.startsWith("file:")) {
+      return {
+        url: trimmed,
+        authToken: undefined,
+        source: name,
+        isLocalFile: true,
+      };
+    }
+    return {
+      url: trimmed,
+      authToken:
+        process.env.DATABASE_AUTH_TOKEN?.trim() || process.env.TURSO_AUTH_TOKEN?.trim() || undefined,
+      source: name,
+      isLocalFile: false,
+    };
+  }
+
+  const localPath = process.env.SALON_DB_PATH?.trim() || path.join(process.cwd(), "salon.db");
+
+  // Falling back to a local file is correct for development and for a
+  // long-lived Node host. It cannot work on serverless hosting, where the bundle
+  // directory is read-only and each instance gets its own temporary filesystem —
+  // but that must never fail a build, because a build machine may legitimately
+  // have no database yet. The unopenable-file case is caught and named at the
+  // point of use instead, by `databaseErrorContext`.
+  return {
+    url: `file:${localPath}`,
+    authToken: undefined,
+    source: process.env.SALON_DB_PATH?.trim() ? "SALON_DB_PATH" : "local-default",
+    isLocalFile: true,
+  };
+}
+
+/**
+ * A log-safe description of the database this process is using.
+ *
+ * It reports which variable supplied the URL, whether it is local or hosted, and
+ * the database host — never a token, and never a local absolute path that would
+ * disclose the deployment's directory layout beyond what a log already shows.
+ */
+export function describeDatabase(): { source: string; mode: "hosted" | "local-file"; host: string | null } {
+  try {
+    const resolved = resolveDatabase();
+    let host: string | null = null;
+    if (!resolved.isLocalFile) {
+      try {
+        host = new URL(resolved.url).host;
+      } catch {
+        host = null;
+      }
+    }
+    return { source: resolved.source, mode: resolved.isLocalFile ? "local-file" : "hosted", host };
+  } catch (error) {
+    return {
+      source: error instanceof DatabaseConfigError ? "missing" : "unknown",
+      mode: "local-file",
+      host: null,
+    };
+  }
+}
+
+/** The connection error code libSQL reports when it cannot open the database. */
+function databaseErrorCode(error: unknown): string | null {
+  const code = (error as { code?: unknown })?.code;
+  return typeof code === "string" && code ? code : null;
+}
+
+/**
+ * `libSQL` answers an unopenable local file with `ConnectionFailed(… : 14)`.
+ * SQLite error 14 is `SQLITE_CANTOPEN`, which on a serverless host almost always
+ * means "no hosted database was configured and the bundle directory is
+ * read-only". Naming that in the log is the difference between a five-minute
+ * diagnosis and an afternoon.
+ */
+function describeConnectionFailure(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  if (/ConnectionFailed/.test(message) && /: 14\b/.test(message)) {
+    return (
+      "libSQL could not open the database (SQLite error 14, SQLITE_CANTOPEN). " +
+      "In production this means no hosted database is configured and the local file cannot be used."
+    );
+  }
+  const code = databaseErrorCode(error);
+  return code ? `${message} (code ${code})` : message;
+}
+
+/** Everything a log line needs to explain a database failure, with no secrets. */
+export function databaseErrorContext(error: unknown): Record<string, unknown> {
+  const resolved = describeDatabase();
+  return {
+    databaseSource: resolved.source,
+    databaseMode: resolved.mode,
+    databaseHost: resolved.host ?? undefined,
+    databaseError: describeConnectionFailure(error),
+  };
+}
 
 export function getDb(): Client {
   if (!global.__salonDbClient) {
-    const url = process.env.DATABASE_URL || `file:${dbPath}`;
+    const resolved = resolveDatabase();
     global.__salonDbClient = createClient({
-      url,
-      authToken: process.env.DATABASE_AUTH_TOKEN,
+      url: resolved.url,
+      authToken: resolved.authToken,
     });
   }
   return global.__salonDbClient;

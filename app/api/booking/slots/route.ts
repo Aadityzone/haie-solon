@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAvailableSlots } from "@/lib/booking-service";
+import { databaseErrorContext } from "@/lib/db";
 import { isUserFacing } from "@/lib/errors";
 import { logError } from "@/lib/logger";
 
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
     const data = await getAvailableSlots(date, duration);
     return NextResponse.json({ success: true, ...data });
   } catch (error: unknown) {
-    logError("booking.slots", error);
+    logError("booking.slots", error, databaseErrorContext(error));
     if (isUserFacing(error)) {
       return NextResponse.json({ success: false, error: error.message }, { status: 400 });
     }

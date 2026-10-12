@@ -1,6 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { getActiveServices, getBookingRules } from "@/lib/booking-service";
+import { databaseErrorContext } from "@/lib/db";
+import { logError } from "@/lib/logger";
 import type { ServiceItem } from "@/lib/types";
 import { salonConfig } from "@/config/salon";
 import { formatDuration, formatRupees } from "@/lib/money";
@@ -18,6 +20,10 @@ type CatalogueState =
  * has marked it available in the dashboard. A price is shown only when the
  * service has one, and it is described as proposed until the owner has saved
  * that row themselves.
+ *
+ * A failure is logged with the database context rather than as a bare object, so
+ * "the menu could not be loaded" in a browser always has a matching, specific
+ * line in the server log.
  */
 async function loadCatalogue(): Promise<CatalogueState> {
   try {
@@ -26,7 +32,7 @@ async function loadCatalogue(): Promise<CatalogueState> {
       ? { kind: "ready", services, pricesVerified: rules.cataloguePricesVerified }
       : { kind: "empty" };
   } catch (error) {
-    console.error("Could not read the service catalogue:", error);
+    logError("home.service-menu", error, databaseErrorContext(error));
     return { kind: "unavailable" };
   }
 }

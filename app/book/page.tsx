@@ -17,7 +17,13 @@ export const metadata = {
  * Steps, prices, durations, and the bookable window are all owned by the wizard,
  * which reads them from the server. Nothing about the salon's availability is
  * decided in this file.
+ *
+ * It is rendered per request, matching the homepage: availability should never be
+ * served from a stale shell, and a statically prerendered route beside a dynamic
+ * one only produces inconsistent client-side prefetching.
  */
+export const dynamic = "force-dynamic";
+
 export default function BookPage() {
   return (
     <>

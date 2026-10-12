@@ -502,7 +502,7 @@ export default function BookingWizard({
       `Estimated total: ${created.totalPriceRupees === null ? "To be confirmed by the salon" : formatRupees(created.totalPriceRupees)}`,
       "Status: Pending approval, not yet confirmed.",
       "Please review my request and let me know once it is confirmed.",
-    ].join("\\n");
+    ].join("\n");
     const whatsappHref = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(whatsappMessage)}`;
     return (
       <div ref={stepPanelRef} tabIndex={-1} className="mx-auto max-w-2xl scroll-mt-24 outline-none">

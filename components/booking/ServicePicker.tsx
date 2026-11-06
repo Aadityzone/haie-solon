@@ -63,7 +63,7 @@ export default function ServicePicker({
             type="button"
             onClick={() => setActiveCategory("all")}
             aria-pressed={activeCategory === "all"}
-            className={`min-h-11 rounded-full px-4 text-xs font-medium transition-colors ${
+            className={`min-h-11 max-w-full break-words rounded-full px-4 text-center text-sm font-medium transition-colors ${
               activeCategory === "all"
                 ? "bg-champagne text-charcoal"
                 : "border border-border bg-elevated text-neutral-600 hover:border-champagne hover:text-foreground"
@@ -77,7 +77,7 @@ export default function ServicePicker({
               type="button"
               onClick={() => setActiveCategory(category.id)}
               aria-pressed={activeCategory === category.id}
-              className={`min-h-11 rounded-full px-4 text-xs font-medium transition-colors ${
+              className={`min-h-11 max-w-full break-words rounded-full px-4 text-center text-sm font-medium transition-colors ${
                 activeCategory === category.id
                   ? "bg-champagne text-charcoal"
                   : "border border-border bg-elevated text-neutral-600 hover:border-champagne hover:text-foreground"
@@ -132,7 +132,7 @@ export default function ServicePicker({
                       {service.priceRupees === null ? "Price on request" : formatRupees(service.priceRupees)}
                     </span>
                     {service.priceRupees !== null && !service.priceVerified && (
-                      <span className="mt-0.5 block text-[0.62rem] uppercase tracking-[0.1em] text-neutral-500">
+                      <span className="mt-0.5 block text-[0.7rem] uppercase tracking-[0.1em] text-neutral-500">
                         Proposed
                       </span>
                     )}

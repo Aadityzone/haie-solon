@@ -206,13 +206,17 @@ export default function DatePicker({ rules, selectedDate, onSelect }: DatePicker
         {Array.from({ length: Math.ceil(grid.length / 7) }, (_, week) => (
           <div role="row" key={week} className="grid grid-cols-7">
             {grid.slice(week * 7, week * 7 + 7).map((date, index) => {
-              if (!date) return <div role="gridcell" key={`blank-${week}-${index}`} className="p-0.5" />;
+              if (!date) return <div role="gridcell" key={`blank-${week}-${index}`} />;
               const state = resolve(date);
               const isSelected = selectedDate === date;
               const isToday = date === rules.windowStart;
               const dayNumber = Number(date.slice(8, 10));
               return (
-                <div role="gridcell" key={date} className="p-0.5">
+                // No inner gutter. Seven columns across a 360px viewport leaves
+                // 45.7px per day; the 2px inset this cell used to carry took it
+                // back down to 41.7px, under the 44px touch minimum, and made
+                // wrong-date taps the most likely mis-tap in the booking flow.
+                <div role="gridcell" key={date}>
                   <button
                     type="button"
                     data-date={date}

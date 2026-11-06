@@ -70,40 +70,59 @@ export async function GET(request: NextRequest) {
 
   const result = await db.execute({ sql, args });
 
-  // Fetch services for each appointment
-  const appointmentsWithServices = await Promise.all(
-    result.rows.map(async (r) => {
-      const servicesResult = await db.execute({
-        sql: `SELECT service_id, service_name, price_rupees, duration_minutes 
-              FROM appointment_services 
-              WHERE appointment_id = ?`,
-        args: [r.id],
-      });
+  // One query for every listed appointment's services, instead of one query per
+  // appointment.
+  //
+  // This was a textbook N+1: a 250-row page issued 250 further round trips (and
+  // each of those also scanned `appointment_services`, which had no index on the
+  // column being filtered). The ids are already in hand, so they are fetched in
+  // a single statement and grouped in memory. The `LIMIT 250` above bounds the
+  // placeholder count well inside SQLite's variable limit.
+  const appointmentIds = result.rows.map((row) => String(row.id));
+  const servicesByAppointment = new Map<
+    string,
+    { serviceId: string; serviceName: string; priceRupees: number | null; durationMinutes: number }[]
+  >();
 
-      return {
-        id: String(r.id),
-        referenceCode: String(r.reference_code),
-        customerName: String(r.customer_name),
-        customerPhone: String(r.customer_phone),
-        customerNotes: r.customer_notes ? String(r.customer_notes) : null,
-        startTime: String(r.start_time),
-        endTime: String(r.end_time),
-        durationMinutes: Number(r.duration_minutes),
-        totalPriceRupees: r.total_price_rupees !== null ? Number(r.total_price_rupees) : null,
-        status: String(r.status) as AppointmentStatus,
-        holdExpiresAt: String(r.hold_expires_at),
-        rejectionReason: r.rejection_reason ? String(r.rejection_reason) : null,
-        createdAt: String(r.created_at),
-        updatedAt: String(r.updated_at),
-        services: servicesResult.rows.map((s) => ({
-          serviceId: String(s.service_id),
-          serviceName: String(s.service_name),
-          priceRupees: s.price_rupees !== null ? Number(s.price_rupees) : null,
-          durationMinutes: Number(s.duration_minutes),
-        })),
-      };
-    })
-  );
+  if (appointmentIds.length > 0) {
+    const placeholders = appointmentIds.map(() => "?").join(",");
+    const servicesResult = await db.execute({
+      sql: `SELECT appointment_id, service_id, service_name, price_rupees, duration_minutes
+            FROM appointment_services
+            WHERE appointment_id IN (${placeholders})`,
+      args: appointmentIds,
+    });
+
+    for (const s of servicesResult.rows) {
+      const key = String(s.appointment_id);
+      const list = servicesByAppointment.get(key) ?? [];
+      list.push({
+        serviceId: String(s.service_id),
+        serviceName: String(s.service_name),
+        priceRupees: s.price_rupees !== null ? Number(s.price_rupees) : null,
+        durationMinutes: Number(s.duration_minutes),
+      });
+      servicesByAppointment.set(key, list);
+    }
+  }
+
+  const appointmentsWithServices = result.rows.map((r) => ({
+    id: String(r.id),
+    referenceCode: String(r.reference_code),
+    customerName: String(r.customer_name),
+    customerPhone: String(r.customer_phone),
+    customerNotes: r.customer_notes ? String(r.customer_notes) : null,
+    startTime: String(r.start_time),
+    endTime: String(r.end_time),
+    durationMinutes: Number(r.duration_minutes),
+    totalPriceRupees: r.total_price_rupees !== null ? Number(r.total_price_rupees) : null,
+    status: String(r.status) as AppointmentStatus,
+    holdExpiresAt: String(r.hold_expires_at),
+    rejectionReason: r.rejection_reason ? String(r.rejection_reason) : null,
+    createdAt: String(r.created_at),
+    updatedAt: String(r.updated_at),
+    services: servicesByAppointment.get(String(r.id)) ?? [],
+  }));
 
   return NextResponse.json({ success: true, appointments: appointmentsWithServices });
 }

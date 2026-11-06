@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { getActiveServices, getBookingRules } from "@/lib/booking-service";
+import { getActiveServices } from "@/lib/booking-service";
 import { databaseErrorContext } from "@/lib/db";
 import { logError } from "@/lib/logger";
 import type { ServiceItem } from "@/lib/types";
@@ -21,15 +21,21 @@ type CatalogueState =
  * service has one, and it is described as proposed until the owner has saved
  * that row themselves.
  *
+ * This reads the catalogue and nothing else. It previously also computed the
+ * whole bookable window — settings, opening hours, and blocked periods — in
+ * order to keep one boolean, and that computation began with a write. Recent
+ * price reviews are a property of the catalogue rows already in hand, so no
+ * second read is needed for them.
+ *
  * A failure is logged with the database context rather than as a bare object, so
  * "the menu could not be loaded" in a browser always has a matching, specific
  * line in the server log.
  */
 async function loadCatalogue(): Promise<CatalogueState> {
   try {
-    const [services, rules] = await Promise.all([getActiveServices(), getBookingRules()]);
+    const services = await getActiveServices();
     return services.length > 0
-      ? { kind: "ready", services, pricesVerified: rules.cataloguePricesVerified }
+      ? { kind: "ready", services, pricesVerified: services.some((service) => service.priceVerified) }
       : { kind: "empty" };
   } catch (error) {
     logError("home.service-menu", error, databaseErrorContext(error));

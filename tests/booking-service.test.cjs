@@ -26,6 +26,24 @@ require.extensions[".ts"] = (module, filename) => {
 const service = require("../lib/booking-service.ts");
 const time = require("../lib/time-utils.ts");
 const { getDb } = require("../lib/db.ts");
+const { clearServerCache } = require("../lib/server-cache.ts");
+
+/**
+ * Reaches the database directly and drops the service's read cache afterwards.
+ *
+ * The booking service caches the service catalogue, the opening hours, and the
+ * booking rules for a short window, and the owner's API routes invalidate them
+ * when they save. This suite deliberately bypasses those routes and writes raw
+ * SQL, so it has to discard the cache itself — otherwise the next read would
+ * legitimately answer from a snapshot taken before the write, and the test would
+ * be asserting against stale data rather than against the database.
+ */
+async function rawDb(statement) {
+  const result = await getDb().execute(statement);
+  clearServerCache();
+  return result;
+}
+
 let ids;
 function dateAfter(days) {
   const today = time.utcIsoToIstParts(new Date().toISOString()).date;
@@ -38,7 +56,7 @@ function input(date, at, suffix = "") {
 
 test("booking validation, trusted service data, holds, and state transitions", async (t) => {
   await service.getActiveServices();
-  await getDb().execute("UPDATE services SET is_active = 1");
+  await rawDb("UPDATE services SET is_active = 1");
   const available = await service.getActiveServices();
   ids = { short: available.find(x => x.durationMinutes <= 30)?.id, long: available.find(x => x.durationMinutes >= 45)?.id };
   assert.ok(ids.short && ids.long);
@@ -53,10 +71,10 @@ test("booking validation, trusted service data, holds, and state transitions", a
   });
 
   await t.test("creates pending requests from database duration and price snapshots", async () => {
-    await getDb().execute({ sql: "UPDATE services SET price_rupees = 777 WHERE id = ?", args: [ids.short] });
+    await rawDb({ sql: "UPDATE services SET price_rupees = 777 WHERE id = ?", args: [ids.short] });
     const booking = await service.createBookingRequest(input(date, "10:00", "success"));
     assert.equal(booking.totalPriceRupees, 777);
-    await getDb().execute({ sql: "UPDATE services SET price_rupees = 999 WHERE id = ?", args: [ids.short] });
+    await rawDb({ sql: "UPDATE services SET price_rupees = 999 WHERE id = ?", args: [ids.short] });
     assert.equal((await service.getAppointmentByReference(booking.referenceCode)).services[0].priceRupees, 777);
     assert.equal(booking.status, "PENDING");
     assert.equal(booking.durationMinutes, available.find(x => x.id === ids.short).durationMinutes);
@@ -68,14 +86,14 @@ test("booking validation, trusted service data, holds, and state transitions", a
     assert.equal(rejected.status, "REJECTED");
     await assert.rejects(service.approveAppointment(booking.id), /Cannot approve/);
 
-    await getDb().execute({ sql: "UPDATE owner_settings SET value = '10' WHERE key = 'salon_buffer_minutes'" });
+    await rawDb({ sql: "UPDATE owner_settings SET value = '10' WHERE key = 'salon_buffer_minutes'" });
     const combined = await service.createBookingRequest({ ...input(date, "14:00", "combined"), serviceIds: [ids.short, ids.long] });
     assert.equal(combined.durationMinutes, available.find(x => x.id === ids.short).durationMinutes + available.find(x => x.id === ids.long).durationMinutes);
     assert.equal(Date.parse(combined.endTime) - Date.parse(combined.startTime), (combined.durationMinutes + 10) * 60_000);
     await service.rejectAppointment(combined.id);
-    await getDb().execute({ sql: "UPDATE owner_settings SET value = '0' WHERE key = 'salon_buffer_minutes'" });
+    await rawDb({ sql: "UPDATE owner_settings SET value = '0' WHERE key = 'salon_buffer_minutes'" });
 
-    await getDb().execute({ sql: "UPDATE services SET price_rupees = 0 WHERE id = ?", args: [ids.short] });
+    await rawDb({ sql: "UPDATE services SET price_rupees = 0 WHERE id = ?", args: [ids.short] });
     const consultation = await service.createBookingRequest(input(date, "16:00", "zero-price"));
     assert.equal(consultation.totalPriceRupees, 0);
     assert.equal((await service.getAppointmentByReference(consultation.referenceCode)).services[0].priceRupees, 0);
@@ -101,7 +119,7 @@ test("booking validation, trusted service data, holds, and state transitions", a
     await service.rejectAppointment(released.id);
 
     const expired = await service.createBookingRequest(input(date, "13:00", "expired"));
-    await getDb().execute({ sql: "UPDATE appointments SET hold_expires_at = ? WHERE id = ?", args: [new Date(Date.now() - 1000).toISOString(), expired.id] });
+    await rawDb({ sql: "UPDATE appointments SET hold_expires_at = ? WHERE id = ?", args: [new Date(Date.now() - 1000).toISOString(), expired.id] });
     await assert.rejects(service.approveAppointment(expired.id), /expired/);
     assert.equal(await service.cleanupExpiredHolds(), 1);
   });
@@ -135,7 +153,7 @@ test("WhatsApp failures retry transiently and duplicate events do not send twice
   const signature = `sha256=${require("node:crypto").createHmac("sha256", process.env.WHATSAPP_APP_SECRET).update(webhookBody).digest("hex")}`;
   const webhookResponse = await webhookPost(new NextRequest("http://localhost/api/webhooks/whatsapp", { method: "POST", headers: { "x-hub-signature-256": signature }, body: webhookBody }));
   assert.equal(webhookResponse.status, 200);
-  const deliveredLog = await getDb().execute({ sql: "SELECT status FROM notification_logs WHERE provider_message_id = ?", args: ["provider-id"] });
+  const deliveredLog = await rawDb({ sql: "SELECT status FROM notification_logs WHERE provider_message_id = ?", args: ["provider-id"] });
   assert.equal(deliveredLog.rows[0].status, "DELIVERED");
   const badSignatureResponse = await webhookPost(new NextRequest("http://localhost/api/webhooks/whatsapp", { method: "POST", headers: { "x-hub-signature-256": "sha256=invalid" }, body: webhookBody }));
   assert.equal(badSignatureResponse.status, 401);
@@ -263,7 +281,7 @@ test("the public catalogue is controlled by the owner's availability flag alone"
   // request, which keeps this suite fast and keeps late writes out of teardown.
   delete process.env.WHATSAPP_API_TOKEN;
 
-  await getDb().execute("UPDATE services SET is_active = 1, price_rupees = 400");
+  await rawDb("UPDATE services SET is_active = 1, price_rupees = 400");
   const active = await service.getActiveServices();
   assert.ok(active.length > 0, "the seeded catalogue must be present");
 
@@ -272,18 +290,18 @@ test("the public catalogue is controlled by the owner's availability flag alone"
   const beard = active.find((s) => /beard/i.test(s.name));
   assert.ok(beard, "an enabled beard service must be listed");
 
-  await getDb().execute({ sql: "UPDATE services SET is_active = 0 WHERE id = ?", args: [beard.id] });
+  await rawDb({ sql: "UPDATE services SET is_active = 0 WHERE id = ?", args: [beard.id] });
   const hidden = await service.getActiveServices();
   assert.ok(!hidden.some((s) => s.id === beard.id), "a disabled service must not be listed");
   assert.equal(active.length - 1, hidden.length, "exactly the disabled service disappears");
-  await getDb().execute({ sql: "UPDATE services SET is_active = 1 WHERE id = ?", args: [beard.id] });
+  await rawDb({ sql: "UPDATE services SET is_active = 1 WHERE id = ?", args: [beard.id] });
 
   // Seeded services carry no image unless the owner sets one.
   assert.ok(active.every((s) => s.imageUrl === null || typeof s.imageUrl === "string"));
-  await getDb().execute({ sql: "UPDATE services SET image_url = ? WHERE id = ?", args: ["/images/gallery/gallery-2.jpg", beard.id] });
+  await rawDb({ sql: "UPDATE services SET image_url = ? WHERE id = ?", args: ["/images/gallery/gallery-2.jpg", beard.id] });
   const withImage = await service.getActiveServices();
   assert.equal(withImage.find((s) => s.id === beard.id).imageUrl, "/images/gallery/gallery-2.jpg");
-  await getDb().execute({ sql: "UPDATE services SET image_url = NULL WHERE id = ?", args: [beard.id] });
+  await rawDb({ sql: "UPDATE services SET image_url = NULL WHERE id = ?", args: [beard.id] });
 });
 
 test("a booking reference alone does not reveal an appointment", async () => {
@@ -322,12 +340,12 @@ test("slot availability honours opening hours, breaks, blocks, and live holds", 
   const target = dateAfter(3);
   const dow = new Date(`${target}T12:00:00+05:30`).getDay();
 
-  await getDb().execute("UPDATE services SET is_active = 1, price_rupees = 400");
+  await rawDb("UPDATE services SET is_active = 1, price_rupees = 400");
   const catalogue = await service.getActiveServices();
   const thirtyMinute = catalogue.find((s) => s.durationMinutes === 30);
   assert.ok(thirtyMinute, "a 30 minute service is required for this test");
 
-  await getDb().execute({
+  await rawDb({
     sql: "UPDATE salon_hours SET is_open = 1, open_time = '10:00', close_time = '18:00', break_start = '13:00', break_end = '14:00' WHERE day_of_week = ?",
     args: [dow],
   });
@@ -346,14 +364,14 @@ test("slot availability honours opening hours, breaks, blocks, and live holds", 
   assert.ok(breakSlots.every((s) => s.available === false && /break/i.test(s.reason || "")), "break slots are unavailable and explained");
 
   // A closed day yields no slots.
-  await getDb().execute({ sql: "UPDATE salon_hours SET is_open = 0 WHERE day_of_week = ?", args: [dow] });
+  await rawDb({ sql: "UPDATE salon_hours SET is_open = 0 WHERE day_of_week = ?", args: [dow] });
   const closed = await service.getAvailableSlots(target, 30);
   assert.equal(closed.salonOpen, false);
   assert.match(closed.reason, /closed/i);
-  await getDb().execute({ sql: "UPDATE salon_hours SET is_open = 1 WHERE day_of_week = ?", args: [dow] });
+  await rawDb({ sql: "UPDATE salon_hours SET is_open = 1 WHERE day_of_week = ?", args: [dow] });
 
   // A blocked period removes only the slots it overlaps.
-  await getDb().execute({
+  await rawDb({
     sql: "INSERT INTO blocked_periods (id, start_time, end_time, reason, created_at) VALUES ('test-block', ?, ?, 'Test block', ?)",
     args: [time.istToUtcIso(target, "16:00"), time.istToUtcIso(target, "17:00"), new Date().toISOString()],
   });
@@ -380,8 +398,8 @@ test("slot availability honours opening hours, breaks, blocks, and live holds", 
   assert.equal(past.salonOpen, false);
   assert.match(past.reason, /within the next/i);
 
-  await getDb().execute("DELETE FROM blocked_periods WHERE id = 'test-block'");
-  await getDb().execute({
+  await rawDb("DELETE FROM blocked_periods WHERE id = 'test-block'");
+  await rawDb({
     sql: "UPDATE salon_hours SET break_start = NULL, break_end = NULL, open_time = '10:00', close_time = '20:00' WHERE day_of_week = ?",
     args: [dow],
   });
@@ -390,7 +408,7 @@ test("slot availability honours opening hours, breaks, blocks, and live holds", 
 test("approval is refused when the interval becomes blocked after the request", async () => {
   const target = dateAfter(4);
   const dow = new Date(`${target}T12:00:00+05:30`).getDay();
-  await getDb().execute({
+  await rawDb({
     sql: "UPDATE salon_hours SET is_open = 1, open_time = '10:00', close_time = '20:00', break_start = NULL, break_end = NULL WHERE day_of_week = ?",
     args: [dow],
   });
@@ -402,7 +420,7 @@ test("approval is refused when the interval becomes blocked after the request", 
     customerName: "Blocked Approval Test", customerPhone: "6280866359", customerNotes: "", whatsappOptIn: false,
   });
 
-  await getDb().execute({
+  await rawDb({
     sql: "INSERT INTO blocked_periods (id, start_time, end_time, reason, created_at) VALUES ('approval-block', ?, ?, 'Staff training', ?)",
     args: [time.istToUtcIso(target, "10:30"), time.istToUtcIso(target, "12:00"), new Date().toISOString()],
   });
@@ -410,7 +428,7 @@ test("approval is refused when the interval becomes blocked after the request", 
   await assert.rejects(service.approveAppointment(booking.id), /blocked/i);
   assert.equal((await service.getAppointmentByReference(booking.referenceCode)).status, "PENDING", "a refused approval leaves the request pending");
 
-  await getDb().execute("DELETE FROM blocked_periods WHERE id = 'approval-block'");
+  await rawDb("DELETE FROM blocked_periods WHERE id = 'approval-block'");
   await service.approveAppointment(booking.id);
   assert.equal((await service.getAppointmentByReference(booking.referenceCode)).status, "CONFIRMED");
   await service.cancelAppointment(booking.id, "Test cleanup");

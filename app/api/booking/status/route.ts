@@ -3,8 +3,7 @@ import { getAppointmentByReference } from "@/lib/booking-service";
 import { databaseErrorContext } from "@/lib/db";
 import { normalizeIndianPhone, utcIsoToIstParts } from "@/lib/time-utils";
 import { logError } from "@/lib/logger";
-
-const lookupAttempts = new Map<string, number[]>();
+import { rateLimit, clientIp, rateLimitHeaders, RATE_LIMITS } from "@/lib/rate-limit";
 
 /**
  * Customer booking lookup.
@@ -16,14 +15,13 @@ const lookupAttempts = new Map<string, number[]>();
  */
 export async function GET(request: NextRequest) {
   try {
-    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
-    const now = Date.now();
-    const attempts = (lookupAttempts.get(ip) || []).filter((time) => now - time < 10 * 60 * 1000);
-    if (attempts.length >= 20) {
-      return NextResponse.json({ success: false, error: "Too many status lookups. Try again later." }, { status: 429 });
+    const limit = await rateLimit("booking-status", clientIp(request), RATE_LIMITS.status.limit, RATE_LIMITS.status.windowMs);
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { success: false, error: "Too many status lookups. Try again later." },
+        { status: 429, headers: rateLimitHeaders(limit) }
+      );
     }
-    attempts.push(now);
-    lookupAttempts.set(ip, attempts);
 
     const { searchParams } = new URL(request.url);
     const ref = searchParams.get("ref")?.trim();

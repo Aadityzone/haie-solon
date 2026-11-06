@@ -137,9 +137,13 @@ rules are covered by unit and browser tests.
   transient 429/5xx retried at most twice, duplicate events suppressed by a unique
   index, and `x-hub-signature-256` verified with a timing-safe compare. An API
   `ACCEPTED` is recorded as accepted, never as delivered.
-- **Motion discipline.** GSAP drives scoped, reversible reveals; Motion drives
-  local interactive transitions; no property is animated by both. Reduced motion
-  disables the marquee, the reveals, and smooth scrolling (browser-tested).
+- **Motion discipline.** GSAP drives scoped, reversible reveals and the hero
+  entrance timeline; Motion for React drives local interactive transitions; no
+  property is animated by both. Reduced motion disables the marquee, the GSAP
+  reveals, and smooth scrolling, and `components/MotionProvider.tsx` sets
+  `<MotionConfig reducedMotion="user">` so Motion's JavaScript animations also
+  honour the visitor's setting (Motion otherwise defaults to `"never"` and
+  ignores it). Browser-tested, including `tests/e2e/animation.spec.ts`.
 - **Responsive layout.** No horizontal overflow on any public page at 360, 414,
   768, 1280, or 1920px, and primary controls meet the 44px touch target
   (browser-tested).

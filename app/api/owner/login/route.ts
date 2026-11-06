@@ -5,14 +5,7 @@ import {
   setOwnerSessionCookie,
   setupOwnerPassword,
 } from "@/lib/auth";
-
-const loginAttempts = new Map<string, number[]>();
-function allowed(ip: string) {
-  const now = Date.now();
-  const attempts = (loginAttempts.get(ip) || []).filter((time) => now - time < 15 * 60 * 1000);
-  if (attempts.length >= 10) return false;
-  attempts.push(now); loginAttempts.set(ip, attempts); return true;
-}
+import { rateLimit, resetRateLimit, clientIp, rateLimitHeaders, RATE_LIMITS } from "@/lib/rate-limit";
 
 export async function GET() {
   try {
@@ -26,8 +19,15 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
-    if (!allowed(ip)) return NextResponse.json({ success: false, error: "Too many sign-in attempts. Try again later." }, { status: 429 });
+    const identity = clientIp(request);
+    const limit = await rateLimit("owner-login", identity, RATE_LIMITS.login.limit, RATE_LIMITS.login.windowMs);
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { success: false, error: "Too many sign-in attempts. Try again later." },
+        { status: 429, headers: rateLimitHeaders(limit) }
+      );
+    }
+
     const body = await request.json();
     const { password, isSetup } = body;
 
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
         );
       }
       await setupOwnerPassword(password);
-      loginAttempts.delete(ip);
+      await resetRateLimit("owner-login", identity, RATE_LIMITS.login.windowMs);
       await setOwnerSessionCookie();
       return NextResponse.json({ success: true, message: "Owner password initialized successfully" });
     }
@@ -61,7 +61,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Invalid password" }, { status: 401 });
     }
 
-    loginAttempts.delete(ip);
+    // A correct password clears the count, so mistyping a few times before
+    // succeeding does not leave the owner one attempt from a lockout.
+    await resetRateLimit("owner-login", identity, RATE_LIMITS.login.windowMs);
     await setOwnerSessionCookie();
     return NextResponse.json({ success: true });
   } catch (error: unknown) {

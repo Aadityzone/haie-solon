@@ -3,6 +3,7 @@ import { getActiveServices, getBookingRules } from "@/lib/booking-service";
 import { databaseErrorContext } from "@/lib/db";
 import { isUserFacing } from "@/lib/errors";
 import { logError } from "@/lib/logger";
+import { rateLimit, clientIp, rateLimitHeaders, RATE_LIMITS } from "@/lib/rate-limit";
 
 /** The longest a single request may be, matching the booking engine's own limit. */
 const MAX_TOTAL_DURATION = 480;
@@ -27,6 +28,14 @@ const MAX_TOTAL_DURATION = 480;
  */
 export async function GET(request: NextRequest) {
   try {
+    const limit = await rateLimit("booking-config", clientIp(request), RATE_LIMITS.config.limit, RATE_LIMITS.config.windowMs);
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { success: false, error: "Too many requests. Please wait a moment and try again." },
+        { status: 429, headers: rateLimitHeaders(limit) }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const servicesParam = (searchParams.get("services") || "").trim();
     const durationParam = searchParams.get("duration");
@@ -65,7 +74,18 @@ export async function GET(request: NextRequest) {
     }
 
     const rules = await getBookingRules(duration);
-    return NextResponse.json({ success: true, services, rules });
+    return NextResponse.json(
+      { success: true, services, rules },
+      {
+        // Derived only from the cached catalogue and rules and containing
+        // nothing user-specific, so it is safe to hold briefly in the browser
+        // and at a CDN. Every value it quotes — the price, the duration, the
+        // slot — is re-derived server-side inside the booking transaction, so a
+        // stale copy can waste a customer's click but can never make an invalid
+        // booking succeed.
+        headers: { "Cache-Control": "public, max-age=60, s-maxage=60, stale-while-revalidate=300" },
+      }
+    );
   } catch (error: unknown) {
     logError("booking.config", error, databaseErrorContext(error));
     if (isUserFacing(error)) {

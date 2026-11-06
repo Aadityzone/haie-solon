@@ -37,6 +37,12 @@
 }
 
 html { color-scheme: dark; scroll-behavior: smooth; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+/* Reserve room for the bars pinned to the bottom edge — the booking wizard's
+   sticky action bar and the mobile action bar — so that when the browser
+   scrolls a focused field into view it stops above them instead of underneath.
+   Without this, focusing the notes field on the details step could leave it
+   hidden behind the Continue bar with the on-screen keyboard already open. */
+html { scroll-padding-bottom: 7rem; }
 section[id], main[id] { scroll-margin-top: 6rem; }
 body { min-height: 100vh; background: #0a0a0b; color: #f2eee7; font-family: var(--font-sans); line-height: 1.65; letter-spacing: -0.01em; }
 h1, h2, h3, h4 { color: #f2eee7; font-family: var(--font-serif); font-weight: 500; line-height: 1.08; letter-spacing: -0.025em; }
@@ -84,19 +90,37 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 /* Remove the 300ms double-tap delay on touch devices. */
 a, button, [role="button"], input, select, textarea, label { touch-action: manipulation; }
 
-/* Keep fixed bars and full-screen overlays clear of notches and home bars. */
+/* Keep fixed bars and full-screen overlays clear of notches and home bars.
+   Horizontal insets only: the header already carries its own responsive
+   horizontal padding, and adding base padding here *as well* produced 40px
+   gutters on a 320px screen where every page section uses 20px — the header
+   stopped lining up with the content beneath it. */
 .safe-x {
-  padding-left: max(1.25rem, env(safe-area-inset-left));
-  padding-right: max(1.25rem, env(safe-area-inset-right));
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
-@media (min-width: 640px) {
-  .safe-x { padding-left: max(2rem, env(safe-area-inset-left)); padding-right: max(2rem, env(safe-area-inset-right)); }
-}
+.safe-top { padding-top: env(safe-area-inset-top); }
+/* For a bar whose own vertical padding is independent of the home indicator. */
+.safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+/* Action bars want a readable gap above the indicator, not just clearance. */
+.safe-bottom-roomy { padding-bottom: max(0.75rem, env(safe-area-inset-bottom)); }
+
 .safe-area-menu {
-  padding-top: max(6rem, env(safe-area-inset-top));
+  padding-top: max(5rem, env(safe-area-inset-top));
   padding-bottom: max(2rem, env(safe-area-inset-bottom));
   overscroll-behavior: contain;
 }
+
+/* Text-like controls are pinned to 16px.
+   Below 16px, Mobile Safari zooms the whole page when a field takes focus and
+   leaves the layout off-centre until the visitor pinches back out. Several
+   surfaces inherited 12–14px here — `font: inherit` inside a `text-xs` label —
+   so the floor is enforced once rather than remembered per form. Unlayered, so
+   it deliberately outranks a `text-sm` utility applied to one input. */
+input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]),
+select,
+textarea,
+.form-control { font-size: 16px; }
 
 /* Long-form content should not be able to push the page sideways. `break-word`
    only breaks a word that would otherwise overflow, so headings stay intact. */

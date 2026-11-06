@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "node tests/booking-service.test.cjs",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "bench": "node tests/load/benchmark.cjs"
   },
   "dependencies": {
     "@libsql/client": "^0.18.0",

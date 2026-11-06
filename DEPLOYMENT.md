@@ -85,14 +85,24 @@ hosted database variables did not reach the runtime. A `databaseSource` of
 `DATABASE_URL` with a `databaseHost` means the URL arrived and the failure is the
 URL or the token itself.
 
-### Why the homepage is rendered per request
+### How the homepage is rendered
 
-`app/page.tsx` sets `dynamic = "force-dynamic"`. The homepage menu comes from the
-same database, and database credentials may exist only in the runtime environment
-and not at build time. A prerendered homepage can therefore bake "the menu could
-not be loaded" into static HTML and keep serving it long after the database is
-reachable. Rendering on request removes that possibility, and it also means an
-owner's menu edit is visible immediately rather than after a cache window.
+`app/page.tsx` sets `export const revalidate = 60`, so the homepage is
+prerendered and revalidated rather than rendered per request.
+
+Freshness is preserved two ways. The catalogue read is cached and tagged, and the
+owner's service routes call `revalidatePath("/")` and drop that tag, so a saved
+service is visible on the next visit rather than after the window. The window
+covers a change that arrives without going through those routes — a database
+restored from backup, or another instance serving its own cached copy.
+
+This replaced `dynamic = "force-dynamic"`, which existed to stop a build machine
+with no database from baking "the menu could not be loaded" into static HTML.
+That risk is now bounded rather than removed: the menu component still catches
+the failure and renders the honest unavailable state, and it is replaced within
+the revalidate window once the database is reachable. Per-request rendering of a
+marketing page was the largest avoidable cost at production traffic, which is why
+the trade was made. `PERFORMANCE.md` has the measurements.
 
 
 ### Optional
@@ -101,6 +111,10 @@ owner's menu edit is visible immediately rather than after a cache window.
 | --- | --- |
 | `SALON_DB_PATH` | Overrides the local SQLite file location when `DATABASE_URL` is unset. |
 | `OWNER_PASSWORD` | Bypasses the database password and authenticates against this value directly. Useful for a managed platform; leave unset if you want the password stored hashed in the database. |
+| `UPSTASH_REDIS_REST_URL` | Shared rate-limit store, for a multi-instance or serverless deployment. See section 11. |
+| `UPSTASH_REDIS_REST_TOKEN` | Token for the above. |
+| `TRUSTED_PROXY_HOPS` | How many proxies in front of the app append to `x-forwarded-for`. Default `1` (a single edge or load balancer). Set `0` only when the app is exposed directly, which makes every caller share one rate-limit bucket. |
+| `BOOKING_RATE_LIMIT_MAX` | Raises the booking-creation budget. Clamped to 10,000; intended for test servers only. |
 
 ### WhatsApp (all optional; notifications are skipped until every one is set)
 
@@ -211,15 +225,21 @@ reports it.
 npm install                 # install dependencies
 npm run lint                # ESLint, must be clean
 npx tsc --noEmit            # type check
-npm test                    # unit tests (booking, privacy, notifications)
+npm test                    # unit tests (booking, privacy, notifications, cache)
 npm run test:e2e            # Playwright: builds, starts, and drives a real browser
 npm run build               # production build
 npm start                   # serve the production build
+npm run bench               # load benchmark; writes nothing, uses a temp database
 ```
 
 `npm run test:e2e` builds and starts its own server on port 3210 against an
 isolated database in `.playwright/`, so it never touches `salon.db`. Override the
 port with `PLAYWRIGHT_PORT` if 3210 is taken.
+
+`npm run bench` seeds a temporary database with 4,000 appointments and reports
+the database statements and latency per request shape. Set `SALON_BENCH_ROOT` to
+measure a different checkout with the same instrumentation, and see
+`PERFORMANCE.md` for the recorded before/after figures.
 
 ## 8. Hosting and domain
 
@@ -257,24 +277,44 @@ port with `PLAYWRIGHT_PORT` if 3210 is taken.
    buffer — to match how the salon actually works.
 5. **Complete the WhatsApp setup** (section 6) if automated notifications are
    wanted.
-6. **Replace the rate limiter** if you run more than one instance. Rate limits are
-   currently in-process `Map`s, which is correct for a single instance and
-   per-instance for a fleet.
+6. **Set `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`** if you run more
+   than one instance, so the rate limits are shared rather than per process. For a
+   single server, leave them unset; the in-process limiter is exact there.
 
 ## 11. Known limitations
 
-- **Rate limiting is per process.** A multi-instance deployment needs a shared
-  store (Redis, Upstash, or the platform's edge limiter) before it can be relied
-  on against abuse.
+- **Read caches are per instance.** The service catalogue, opening hours, and
+  booking rules are cached in-process for 60 seconds. A mutation invalidates the
+  instance that handled it immediately, and every other instance within the TTL,
+  so a single-server deployment is exact. This is deliberate — see
+  `lib/server-cache.ts` for why Next's persistent cache was rejected here.
+- **Rate limiting is per process unless a shared store is configured.** Set
+  `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` for a fleet; without
+  them a deployment of N instances allows N times the configured budget and a
+  cold start resets it. If the shared store is unreachable the app falls back to
+  the in-process counter rather than failing requests.
+- **Read-endpoint rate limits are deliberately loose.** The availability and
+  configuration endpoints allow 300 requests per 10 minutes per address, because
+  mobile carriers put many subscribers behind one address through CGNAT. They
+  bound accidental and single-source load, not a distributed attack; the database
+  cost of abuse is bounded by the read cache.
 - **The local SQLite file does not work on serverless hosting.** Use Turso.
 - **No email channel.** Customer notices are WhatsApp-only, and only for
   customers who opted in.
 - **Notifications are fire-and-forget.** A provider outage cannot fail a booking,
-  which is intentional, but it also means a notification failure is only visible
-  in the dashboard log rather than retried indefinitely.
-- **The homepage menu is rendered per request**, so it always reads the live
-  catalogue and shows an owner's edit immediately.
+  which is intentional, but the send is a detached promise rather than a durable
+  queue: on serverless the instance can be recycled before it completes, leaving
+  the attempt recorded as `SENDING` with no outcome. A transactional outbox is the
+  correct fix and is not implemented.
+- **The homepage menu can be up to 60 seconds stale**, or briefly serve an
+  "unavailable" state after a build with no reachable database. Both self-heal,
+  and an owner's save is picked up on the next visit.
+- **`/book` is still rendered per request**, and its first step waits on a client
+  fetch. Server-rendering that data would remove two round trips per booking
+  session.
 - **No automated off-site backups are configured.** See section 9.
+
+`PERFORMANCE.md` records what was measured, how, and what remains.
 
 ## 12. Security notes
 
@@ -288,6 +328,12 @@ port with `PLAYWRIGHT_PORT` if 3210 is taken.
   used for the booking. A wrong reference and a wrong number return the same
   answer, so neither confirms the other exists.
 - The WhatsApp webhook verifies `x-hub-signature-256` with a timing-safe compare
-  and ignores duplicate or out-of-order status updates.
-- Login and booking endpoints are rate limited, and server errors are logged with
-  phone numbers redacted and generic messages returned to the client.
+  and ignores duplicate or out-of-order status updates. Its GET verify-token
+  comparison is constant-time too.
+- Booking creation, status lookup, the availability and configuration endpoints,
+  and owner sign-in are all rate limited. Budgets live in one place,
+  `RATE_LIMITS` in `lib/rate-limit.ts`. The limiter bounds its own memory and
+  reads the client address from the hop the nearest trusted proxy observed,
+  rather than from the first `x-forwarded-for` entry a caller can forge.
+- Server errors are logged with phone numbers redacted and generic messages
+  returned to the client.

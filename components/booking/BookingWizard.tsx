@@ -500,7 +500,7 @@ export default function BookingWizard({
           </p>
 
           <div className="mt-5 border border-champagne/50 bg-champagne-muted p-4">
-            <p className="text-[0.62rem] font-semibold uppercase tracking-[0.16em] text-champagne">Booking reference</p>
+            <p className="text-[0.7rem] font-semibold uppercase tracking-[0.16em] text-champagne">Booking reference</p>
             <div className="mt-2 flex flex-wrap items-center gap-3">
               <p data-testid="booking-reference" className="font-mono text-xl font-semibold tracking-wider text-foreground sm:text-2xl">
                 {reference}
@@ -609,7 +609,11 @@ export default function BookingWizard({
       <ol
         aria-label="Booking progress"
         className={`z-20 flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-border bg-background/95 px-1 py-2.5 backdrop-blur-sm sm:px-0 ${
-          isDialog ? "shrink-0" : "sticky top-0"
+          // On the standalone page the bar sticks directly beneath the fixed
+          // header (68px incl. its border). At `top-0` it slid underneath the
+          // header at z-50 and the step indicator vanished exactly while the
+          // customer was scrolling a long form.
+          isDialog ? "shrink-0" : "sticky top-[4.3rem]"
         }`}
       >
         {STEP_ORDER.map((value, index) => {
@@ -636,7 +640,7 @@ export default function BookingWizard({
       <div
         ref={stepPanelRef}
         tabIndex={-1}
-        className={`scroll-mt-24 outline-none ${isDialog ? "flex-1 overflow-y-auto px-1 py-5 sm:px-0" : "pt-6"}`}
+        className={`scroll-mt-24 outline-none ${isDialog ? "flex-1 overflow-y-auto overscroll-contain px-1 py-5 sm:px-0" : "pt-6"}`}
       >
         {step === "services" && (
           <ServicePicker services={services} selectedIds={selectedServiceIds} onToggle={toggleService} />
@@ -822,7 +826,11 @@ export default function BookingWizard({
                       setSelectedTime("");
                       goToStep("time");
                     }}
-                    className="mt-2 block font-semibold underline underline-offset-4"
+                    // The only recovery from a taken slot. It used to be bare
+                    // underlined text on a 16px line box, far below a usable tap
+                    // target, on the one action standing between the customer and
+                    // an abandoned booking.
+                    className="mt-3 flex min-h-11 w-full items-center justify-center border border-red-700 bg-red-900/30 px-4 text-sm font-semibold text-red-100 transition-colors hover:border-red-500 hover:text-white"
                   >
                     Choose another time
                   </button>
@@ -887,12 +895,15 @@ export default function BookingWizard({
 
       {/* Action bar: the running total and the next action stay reachable without
           scrolling back up on a narrow screen. Inside the modal the shell is the
-          scroll container, so the bar simply pins to its bottom. */}
+          scroll container, so the bar simply pins to its bottom.
+          The bottom padding pays back the home-indicator inset that
+          `viewport-fit=cover` exposes, so Confirm is never under the gesture
+          bar on a modern iPhone. */}
       <div
         className={`z-20 border-t border-border bg-background/95 backdrop-blur-sm ${
           isDialog
-            ? "shrink-0 px-1 pb-1 pt-3 sm:px-0"
-            : "sticky bottom-0 mt-6 pb-3 pt-3"
+            ? "shrink-0 px-1 pb-[max(0.35rem,env(safe-area-inset-bottom))] pt-3 sm:px-0"
+            : "sticky bottom-0 mt-6 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3"
         }`}
       >
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs text-neutral-500">

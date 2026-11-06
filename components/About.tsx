@@ -17,7 +17,7 @@ export default function About() {
             />
           </div>
           <div className="absolute -bottom-3 -right-3 -z-0 h-full w-full border border-champagne/50" aria-hidden="true" />
-          <p className="relative mt-4 text-right text-[0.62rem] uppercase tracking-[0.13em] text-neutral-500">Illustrative photography · not a verified salon image</p>
+          <p className="relative mt-4 text-right text-[0.7rem] uppercase tracking-[0.13em] text-neutral-500">Illustrative photography · not a verified salon image</p>
         </div>
 
         <div className="relative z-10 lg:pl-4">

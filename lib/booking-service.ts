@@ -15,8 +15,20 @@ import {
 } from "./time-utils";
 import { sendAppointmentNotification } from "./notifications/whatsapp";
 import { SalonError } from "./errors";
+import { logWarn } from "./logger";
+import { cached, CACHE_TAGS, CACHE_TTL_MS } from "./server-cache";
 import crypto from "node:crypto";
 import { salonConfig } from "@/config/salon";
+
+/** The owner-configured booking rules, already clamped to their allowed ranges. */
+export interface BookingSettings {
+  slotIntervalMinutes: number;
+  bufferMinutes: number;
+  holdMinutes: number;
+  maxAdvanceDays: number;
+  allowMultiService: boolean;
+  timezone: string;
+}
 
 /**
  * Ensures DB is initialized before executing queries
@@ -24,6 +36,49 @@ import { salonConfig } from "@/config/salon";
 async function ensureDb() {
   await initDb();
   return getDb();
+}
+
+/**
+ * How long the expired-hold sweep is trusted to have run.
+ *
+ * The sweep is an `UPDATE`, and it was previously issued unconditionally at the
+ * top of every availability check, booking-rule read, and status lookup — so
+ * every *read* took the database's single writer lock. Under load that put the
+ * cheapest marketing page in direct contention with real booking transactions.
+ *
+ * It is not needed for availability to be correct: every overlap predicate
+ * already ignores a hold whose `hold_expires_at` has passed
+ * (`status = 'PENDING' AND hold_expires_at > ?`), so an un-swept row cannot
+ * reserve an interval. The sweep only tidies the stored status for the owner's
+ * dashboard, which does not need it to be current to the second.
+ */
+const HOLD_SWEEP_INTERVAL_MS = 60_000;
+let lastHoldSweepAt = 0;
+let holdSweepInFlight: Promise<void> | null = null;
+
+/**
+ * Releases expired holds at most once per `HOLD_SWEEP_INTERVAL_MS`.
+ *
+ * Deliberately not awaited by its callers, and deliberately not retried within
+ * the window: a failed sweep is logged and the next window handles it. Every
+ * read path that used to call this unconditionally now issues no write at all
+ * in the common case.
+ */
+function sweepExpiredHoldsOpportunistically(): void {
+  const now = Date.now();
+  if (holdSweepInFlight || now - lastHoldSweepAt < HOLD_SWEEP_INTERVAL_MS) return;
+  // Claimed before the await so concurrent callers do not all start a sweep.
+  lastHoldSweepAt = now;
+  holdSweepInFlight = cleanupExpiredHolds()
+    .then(() => undefined)
+    .catch((error: unknown) => {
+      logWarn("booking.hold-sweep", "The opportunistic expired-hold sweep failed; the next window will retry.", {
+        sweepError: error instanceof Error ? error.message : String(error),
+      });
+    })
+    .finally(() => {
+      holdSweepInFlight = null;
+    });
 }
 
 /**
@@ -51,8 +106,16 @@ export async function cleanupExpiredHolds(): Promise<number> {
  * Visibility is controlled solely by the owner's `is_active` flag on each row.
  * There is deliberately no name-based filtering here: the salon is a unisex
  * studio and the service catalogue must stay fully owner-configurable.
+ *
+ * Cached for a minute, and invalidated immediately by the owner's service
+ * routes, so the public menu does not re-read an unchanged catalogue on every
+ * visit.
  */
 export async function getActiveServices(): Promise<ServiceItem[]> {
+  return cached("salon:services:active", [CACHE_TAGS.catalogue], CACHE_TTL_MS.catalogue, readActiveServices);
+}
+
+async function readActiveServices(): Promise<ServiceItem[]> {
   const db = await ensureDb();
   const result = await db.execute(
     `SELECT id, category_id, category_name, name, description, price_rupees, duration_minutes, is_active, sort_order, image_url, price_verified
@@ -76,10 +139,24 @@ export async function getActiveServices(): Promise<ServiceItem[]> {
   }));
 }
 
+/** The `cataloguePricesVerified` fact the public menu needs, from the cached rows. */
+export async function isAnyPriceVerified(): Promise<boolean> {
+  const services = await getActiveServices();
+  return services.some((service) => service.priceVerified);
+}
+
 /**
- * Retrieves opening hours for all days of the week
+ * Retrieves opening hours for all days of the week.
+ *
+ * Cached and invalidated by the owner's hours route: these seven rows were
+ * previously read on every availability check, and again for the full week
+ * inside every booking-rule read.
  */
 export async function getSalonHours(): Promise<SalonDayHours[]> {
+  return cached("salon:hours", [CACHE_TAGS.config], CACHE_TTL_MS.config, readSalonHours);
+}
+
+async function readSalonHours(): Promise<SalonDayHours[]> {
   const db = await ensureDb();
   const result = await db.execute(
     `SELECT day_of_week, day_name, is_open, open_time, close_time, break_start, break_end 
@@ -103,15 +180,23 @@ export async function getSalonHours(): Promise<SalonDayHours[]> {
  * of the booking engine enforces. Every screen that quotes a booking window,
  * slot interval, or buffer reads it from here so no rule is duplicated as an
  * independent hardcoded number in the UI.
+ *
+ * Cached for read paths. The booking transaction deliberately does not use this
+ * — see `readBookingSettingsLive`.
  */
-export async function getBookingSettings(): Promise<{
-  slotIntervalMinutes: number;
-  bufferMinutes: number;
-  holdMinutes: number;
-  maxAdvanceDays: number;
-  allowMultiService: boolean;
-  timezone: string;
-}> {
+export async function getBookingSettings(): Promise<BookingSettings> {
+  return cached("salon:settings", [CACHE_TAGS.config], CACHE_TTL_MS.config, readBookingSettingsLive);
+}
+
+/**
+ * The uncached read, for decisions that must not act on a stale rule.
+ *
+ * Caching rules that decide whether a booking is accepted would let a customer
+ * be booked under a hold duration, slot interval, or buffer the owner had
+ * already changed. Reads may be a minute behind; the acceptance decision never
+ * is.
+ */
+export async function readBookingSettingsLive(): Promise<BookingSettings> {
   const db = await ensureDb();
   const result = await db.execute(
     "SELECT key, value FROM owner_settings WHERE key IN ('slot_interval_minutes','salon_buffer_minutes','pending_hold_minutes','max_advance_booking_days','allow_multi_service','salon_timezone')"
@@ -156,7 +241,7 @@ export async function getBookingRules(durationMinutes = 0): Promise<{
   cataloguePricesVerified: boolean;
 }> {
   const db = await ensureDb();
-  await cleanupExpiredHolds();
+  sweepExpiredHoldsOpportunistically();
 
   const settings = await getBookingSettings();
   const hours = await getSalonHours();
@@ -193,15 +278,18 @@ export async function getBookingRules(durationMinutes = 0): Promise<{
   // meaningfully choose is tomorrow.
   let minSelectableDate = today;
   if (durationMinutes > 0) {
-    const remaining = await getAvailableSlots(today, durationMinutes);
+    // The settings and hours already read above are handed down rather than
+    // re-read: this call previously fetched the same seven hour rows a second
+    // time within the same request.
+    const remaining = await getAvailableSlots(today, durationMinutes, { settings, hours });
     if (!remaining.salonOpen || !remaining.slots.some((slot) => slot.available)) {
       minSelectableDate = addDays(today, 1);
     }
   }
 
-  const verified = await db.execute(
-    "SELECT count(*) AS count FROM services WHERE is_active = 1 AND price_verified = 1"
-  );
+  // Derived from the cached catalogue rather than a separate `count(*)` over
+  // `services`, which asked the database a question it had already answered.
+  const cataloguePricesVerified = await isAnyPriceVerified();
 
   return {
     timezone: settings.timezone,
@@ -223,7 +311,7 @@ export async function getBookingRules(durationMinutes = 0): Promise<{
     })),
     blockedDates: Array.from(blockedDates).sort(),
     closedDates,
-    cataloguePricesVerified: Number(verified.rows[0]?.count || 0) > 0,
+    cataloguePricesVerified,
   };
 }
 
@@ -239,10 +327,11 @@ function addDays(dateStr: string, days: number): string {
  */
 export async function getAvailableSlots(
   dateStr: string, // YYYY-MM-DD
-  durationMinutes: number
+  durationMinutes: number,
+  context?: { settings?: BookingSettings; hours?: SalonDayHours[] }
 ): Promise<{ date: string; slots: SlotAvailability[]; salonOpen: boolean; reason?: string }> {
   const db = await ensureDb();
-  await cleanupExpiredHolds();
+  sweepExpiredHoldsOpportunistically();
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
     throw new SalonError("Invalid date format. Expected YYYY-MM-DD.");
@@ -250,7 +339,7 @@ export async function getAvailableSlots(
   const [dateYear, dateMonth, dateDay] = dateStr.split("-").map(Number);
   const parsed = new Date(Date.UTC(dateYear, dateMonth - 1, dateDay));
   if (parsed.getUTCFullYear() !== dateYear || parsed.getUTCMonth() !== dateMonth - 1 || parsed.getUTCDate() !== dateDay) throw new SalonError("Invalid calendar date.");
-  const settings = await getBookingSettings();
+  const settings = context?.settings ?? (await getBookingSettings());
   const slotInterval = settings.slotIntervalMinutes;
   const bufferMinutes = settings.bufferMinutes;
   const reservedDuration = durationMinutes + bufferMinutes;
@@ -263,19 +352,19 @@ export async function getAvailableSlots(
   const dummyIst = new Date(`${dateStr}T12:00:00+05:30`);
   const dayOfWeek = dummyIst.getDay();
 
-  // Fetch hours for that day
-  const hoursResult = await db.execute({
-    sql: `SELECT is_open, open_time, close_time, break_start, break_end FROM salon_hours WHERE day_of_week = ?`,
-    args: [dayOfWeek],
-  });
+  // The week's opening hours come from the same cached read `getBookingRules`
+  // already uses, rather than a second query for this one day's row.
+  const allHours = context?.hours ?? (await getSalonHours());
+  const dayHours = allHours.find((entry) => entry.dayOfWeek === dayOfWeek);
 
-  if (hoursResult.rows.length === 0 || !Number(hoursResult.rows[0].is_open)) {
+  if (!dayHours || !dayHours.isOpen) {
     return { date: dateStr, slots: [], salonOpen: false, reason: "Salon is closed on this day." };
   }
 
-  const { open_time, close_time, break_start, break_end } = hoursResult.rows[0];
-  const openTimeStr = String(open_time);
-  const closeTimeStr = String(close_time);
+  const openTimeStr = String(dayHours.openTime);
+  const closeTimeStr = String(dayHours.closeTime);
+  const break_start = dayHours.breakStart;
+  const break_end = dayHours.breakEnd;
 
   // Parse open and close into minutes from midnight
   const [openH, openM] = openTimeStr.split(":").map(Number);
@@ -298,22 +387,28 @@ export async function getAvailableSlots(
   const dayEndIso = istToUtcIso(dateStr, "23:59");
   const nowIso = new Date().toISOString();
 
-  // Active appointments overlapping this date
+  // Active appointments overlapping this date.
+  //
+  // Written as `start_time < ? AND end_time > ?` rather than the equivalent
+  // `NOT (end_time <= ? OR start_time >= ?)`. The two select the same rows, but
+  // only the first is sargable: a negated disjunction gives the query planner
+  // nothing to seek on, so it fell back to scanning every appointment ever
+  // recorded. This form uses the range indexes on the time columns.
   const apptsResult = await db.execute({
     sql: `SELECT start_time, end_time FROM appointments 
           WHERE (
             status = 'CONFIRMED' 
             OR (status = 'PENDING' AND hold_expires_at > ?)
           )
-          AND NOT (end_time <= ? OR start_time >= ?)`,
-    args: [nowIso, dayStartIso, dayEndIso],
+          AND start_time < ? AND end_time > ?`,
+    args: [nowIso, dayEndIso, dayStartIso],
   });
 
-  // Blocked periods overlapping this date
+  // Blocked periods overlapping this date, in the same sargable form.
   const blocksResult = await db.execute({
     sql: `SELECT start_time, end_time, reason FROM blocked_periods 
-          WHERE NOT (end_time <= ? OR start_time >= ?)`,
-    args: [dayStartIso, dayEndIso],
+          WHERE start_time < ? AND end_time > ?`,
+    args: [dayEndIso, dayStartIso],
   });
 
   // Current time in IST to filter out past slots if date is today
@@ -433,7 +528,9 @@ export async function createBookingRequest(input: CreateBookingInput): Promise<A
     throw new SalonError("Cannot book an appointment in the past.");
   }
 
-  const bookingSettings = await getBookingSettings();
+  // The live read, not the cached one: the rules that decide whether this
+  // booking is accepted must never be a minute behind the owner's setting.
+  const bookingSettings = await readBookingSettingsLive();
   const maxAdvanceDays = bookingSettings.maxAdvanceDays;
   const lastBookable = new Date(Date.UTC(year, month - 1, day));
   const today = new Date(`${istNow.date}T00:00:00Z`);
@@ -534,26 +631,27 @@ export async function createBookingRequest(input: CreateBookingInput): Promise<A
       args: [currentIso],
     });
 
-    // 2. Overlap check against appointments
+    // 2. Overlap check against appointments, in the sargable form that uses the
+    //    time index rather than scanning every appointment ever recorded.
     const conflictResult = await tx.execute({
       sql: `SELECT id, status, reference_code FROM appointments 
             WHERE (
               status = 'CONFIRMED' 
               OR (status = 'PENDING' AND hold_expires_at > ?)
             )
-            AND NOT (end_time <= ? OR start_time >= ?)`,
-      args: [currentIso, startTimeIso, endTimeIso],
+            AND start_time < ? AND end_time > ?`,
+      args: [currentIso, endTimeIso, startTimeIso],
     });
 
     if (conflictResult.rows.length > 0) {
       throw new SalonError("SLOT_UNAVAILABLE: This time slot is already reserved. Please select another time.");
     }
 
-    // 3. Overlap check against blocked periods
+    // 3. Overlap check against blocked periods, in the same sargable form.
     const blockConflict = await tx.execute({
       sql: `SELECT id, reason FROM blocked_periods 
-            WHERE NOT (end_time <= ? OR start_time >= ?)`,
-      args: [startTimeIso, endTimeIso],
+            WHERE start_time < ? AND end_time > ?`,
+      args: [endTimeIso, startTimeIso],
     });
 
     if (blockConflict.rows.length > 0) {
@@ -591,16 +689,18 @@ export async function createBookingRequest(input: CreateBookingInput): Promise<A
       ],
     });
 
-    // 6. Insert snapshot into appointment_services
-    for (const s of selectedServices) {
-      const snapId = crypto.randomUUID();
-      await tx.execute({
-        sql: `INSERT INTO appointment_services (
-                id, appointment_id, service_id, service_name, price_rupees, duration_minutes
-              ) VALUES (?, ?, ?, ?, ?, ?)`,
-        args: [snapId, appointmentId, s.id, s.name, s.price, s.duration],
-      });
-    }
+    // 6. Insert the price/duration snapshot in a single statement.
+    //
+    // This was a loop of one `INSERT` per selected service, each awaited in
+    // turn, which held the exclusive write lock across up to eight extra round
+    // trips — and every booking transaction in the salon queues behind it.
+    const snapshots: { sql: string; args: (string | number | null)[] }[] = selectedServices.map((s) => ({
+      sql: `INSERT INTO appointment_services (
+              id, appointment_id, service_id, service_name, price_rupees, duration_minutes
+            ) VALUES (?, ?, ?, ?, ?, ?)`,
+      args: [crypto.randomUUID(), appointmentId, s.id, s.name, s.price, s.duration],
+    }));
+    if (snapshots.length > 0) await tx.batch(snapshots);
 
     // 7. Commit transaction
     await tx.commit();
@@ -666,7 +766,7 @@ export async function createBookingRequest(input: CreateBookingInput): Promise<A
  */
 export async function getAppointmentByReference(referenceCode: string, verifyPhone?: string): Promise<Appointment | null> {
   const db = await ensureDb();
-  await cleanupExpiredHolds();
+  sweepExpiredHoldsOpportunistically();
 
   const args: string[] = [referenceCode.toUpperCase().trim()];
   let phoneFilter = "";
@@ -691,6 +791,20 @@ export async function getAppointmentByReference(referenceCode: string, verifyPho
   if (apptResult.rows.length === 0) return null;
   const r = apptResult.rows[0];
 
+  // The sweep is now opportunistic, so a hold may have lapsed since it last
+  // ran. Deriving the answer here keeps what the customer is told exactly
+  // right between sweeps, without a write on this path: an expired pending
+  // request is reported as the cancelled request the sweep will make it.
+  const storedStatus = String(r.status) as AppointmentStatus;
+  const holdExpiresAt = String(r.hold_expires_at);
+  const holdLapsed = storedStatus === "PENDING" && Date.parse(holdExpiresAt) <= Date.now();
+  const effectiveStatus: AppointmentStatus = holdLapsed ? "CANCELLED" : storedStatus;
+  const effectiveRejectionReason = holdLapsed
+    ? "Pending request expired before approval"
+    : r.rejection_reason
+      ? String(r.rejection_reason)
+      : null;
+
   const servicesResult = await db.execute({
     sql: `SELECT id, service_id, service_name, price_rupees, duration_minutes 
           FROM appointment_services 
@@ -708,9 +822,9 @@ export async function getAppointmentByReference(referenceCode: string, verifyPho
     endTime: String(r.end_time),
     durationMinutes: Number(r.duration_minutes),
     totalPriceRupees: r.total_price_rupees !== null ? Number(r.total_price_rupees) : null,
-    status: String(r.status) as AppointmentStatus,
-    holdExpiresAt: String(r.hold_expires_at),
-    rejectionReason: r.rejection_reason ? String(r.rejection_reason) : null,
+    status: effectiveStatus,
+    holdExpiresAt,
+    rejectionReason: effectiveRejectionReason,
     createdAt: String(r.created_at),
     updatedAt: String(r.updated_at),
     services: servicesResult.rows.map((s) => ({
@@ -759,12 +873,13 @@ export async function approveAppointment(appointmentId: string): Promise<void> {
       throw new SalonError("This appointment now overlaps the salon break.");
     }
 
-    // Recheck for any other CONFIRMED appointments overlapping this window
+    // Recheck for any other CONFIRMED appointments overlapping this window,
+    // in the sargable form that the time index can serve.
     const conflict = await tx.execute({
       sql: `SELECT id, reference_code FROM appointments 
             WHERE id != ? AND (status = 'CONFIRMED' OR (status = 'PENDING' AND hold_expires_at > ?))
-            AND NOT (end_time <= ? OR start_time >= ?)`,
-      args: [appointmentId, new Date().toISOString(), appt.start_time, appt.end_time],
+            AND start_time < ? AND end_time > ?`,
+      args: [appointmentId, new Date().toISOString(), appt.end_time, appt.start_time],
     });
 
     if (conflict.rows.length > 0) {
@@ -773,11 +888,11 @@ export async function approveAppointment(appointmentId: string): Promise<void> {
       );
     }
 
-    // Recheck blocked periods
+    // Recheck blocked periods, in the same sargable form.
     const blockConflict = await tx.execute({
       sql: `SELECT id, reason FROM blocked_periods 
-            WHERE NOT (end_time <= ? OR start_time >= ?)`,
-      args: [appt.start_time, appt.end_time],
+            WHERE start_time < ? AND end_time > ?`,
+      args: [appt.end_time, appt.start_time],
     });
 
     if (blockConflict.rows.length > 0) {

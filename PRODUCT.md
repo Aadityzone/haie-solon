@@ -17,6 +17,17 @@ A local unisex hair salon website and appointment request system for a salon in 
 
 - Next.js App Router with React and TypeScript.
 - Tailwind CSS v4, GSAP for scoped editorial entrance effects, and Motion for local interactions.
+  - **Animation ownership.** GSAP owns the cinematic hero timeline and the
+    scroll-triggered section reveals (`components/ui/hero-3.tsx`,
+    `components/Gallery.tsx`, `components/ServiceHighlights.tsx`); Motion for
+    React owns local component transitions (the mobile menu, the booking dialog,
+    the gallery lightbox). An element is animated by exactly one of the two.
+    Every GSAP effect is wrapped in a `gsap.context` that is reverted on unmount,
+    and reduced motion is honoured by `components/MotionProvider.tsx`
+    (`<MotionConfig reducedMotion="user">`) plus the per-effect GSAP guard. Both
+    libraries are already declared dependencies (`gsap`, `motion`); do not add a
+    second animation library.
+
 - SQLite/libSQL persistence using `@libsql/client` and runtime schema setup in `lib/db.ts`.
 - Server API routes validate and persist appointment requests, recalculate service price/duration from active database records, and check time conflicts.
 - Owner pages and mutations use the existing server-side session/auth implementation.

@@ -3,9 +3,20 @@ import { getAvailableSlots } from "@/lib/booking-service";
 import { databaseErrorContext } from "@/lib/db";
 import { isUserFacing } from "@/lib/errors";
 import { logError } from "@/lib/logger";
+import { rateLimit, clientIp, rateLimitHeaders, RATE_LIMITS } from "@/lib/rate-limit";
 
 export async function GET(request: NextRequest) {
   try {
+    // The most-requested public endpoint, and previously the only one with no
+    // limit at all.
+    const limit = await rateLimit("booking-slots", clientIp(request), RATE_LIMITS.slots.limit, RATE_LIMITS.slots.windowMs);
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { success: false, error: "Too many availability requests. Please wait a moment and try again." },
+        { status: 429, headers: rateLimitHeaders(limit) }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const date = searchParams.get("date");
     const durationParam = searchParams.get("duration");

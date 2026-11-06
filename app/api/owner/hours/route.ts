@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireOwnerAuth } from "@/lib/auth";
 import { getSalonHours } from "@/lib/booking-service";
 import { getDb, initDb } from "@/lib/db";
+import { invalidateTagsSafely, CACHE_TAGS } from "@/lib/server-cache";
+import { logError } from "@/lib/logger";
 
 export async function GET() {
   const isAuth = await requireOwnerAuth();
@@ -47,9 +49,13 @@ export async function PUT(request: NextRequest) {
       ],
     });
 
+    // Opening hours are cached for the availability read path; drop them so the
+    // change is visible to the next request rather than after the TTL.
+    invalidateTagsSafely("owner.hours", [CACHE_TAGS.config]);
+
     return NextResponse.json({ success: true, message: "Hours updated successfully" });
   } catch (error: unknown) {
-    console.error("Update hours error:", error);
+    logError("owner.hours.update", error);
     return NextResponse.json({ success: false, error: "Failed to update salon hours" }, { status: 500 });
   }
 }

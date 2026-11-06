@@ -159,6 +159,34 @@ export function getDb(): Client {
 }
 
 /**
+ * The schema generation this build expects.
+ *
+ * Bump this whenever `initializeDb` below changes anything structural — a new
+ * table, a new column guard, a new index, or a new seeded row. The stored marker
+ * is what lets a warm database skip the migration block entirely; if it is not
+ * bumped, existing deployments silently miss the change.
+ */
+const SCHEMA_VERSION = 2;
+
+/**
+ * True when this database has already been migrated to `SCHEMA_VERSION`.
+ *
+ * A brand-new database has no `owner_settings` table at all, which raises rather
+ * than returning a row — that is the "needs a full run" answer, not an error.
+ */
+async function isSchemaCurrent(db: Client): Promise<boolean> {
+  try {
+    const result = await db.execute({
+      sql: "SELECT value FROM owner_settings WHERE key = 'schema_version'",
+      args: [],
+    });
+    return Number(result.rows[0]?.value) === SCHEMA_VERSION;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Initializes database tables and seed data if not already initialized
  */
 export function initDb(): Promise<void> {
@@ -174,6 +202,17 @@ export function initDb(): Promise<void> {
 
 async function initializeDb(): Promise<void> {
   const db = getDb();
+
+  // Fast path for a database this build has already migrated.
+  //
+  // `initDb` is memoised per process, so the full run below happens once per
+  // instance — but on serverless that is once per cold start, and it is ~20 DDL
+  // and seed statements charged to whichever visitor arrived first. A single
+  // indexed read replaces all of it once the marker is in place.
+  if (await isSchemaCurrent(db)) {
+    global.__salonDbInitialized = true;
+    return;
+  }
 
   // Create tables in sequence
   await db.execute(`
@@ -224,6 +263,13 @@ async function initializeDb(): Promise<void> {
     );
   `);
 
+  // Blocked periods are read by every availability check in the overlap form
+  // `start_time < ? AND end_time > ?`, so the pair needs an index of its own.
+  await db.execute(`
+    CREATE INDEX IF NOT EXISTS idx_blocked_periods_start_end
+    ON blocked_periods (start_time, end_time);
+  `);
+
   await db.execute(`
     CREATE TABLE IF NOT EXISTS appointments (
       id TEXT PRIMARY KEY,
@@ -258,6 +304,22 @@ async function initializeDb(): Promise<void> {
     ON appointments (reference_code);
   `);
 
+  // The dominant predicate in the whole application is the live-hold test
+  // `status = ? AND hold_expires_at > ?`, and its `<` twin is the expiry sweep.
+  // Neither is served by an index that leads with `start_time`, so without this
+  // every availability check and every sweep degrades to a full table scan.
+  await db.execute(`
+    CREATE INDEX IF NOT EXISTS idx_appointments_status_hold
+    ON appointments (status, hold_expires_at);
+  `);
+
+  // The owner dashboard filters by status and orders by start_time; the
+  // covering index lets that be answered without touching the row bodies.
+  await db.execute(`
+    CREATE INDEX IF NOT EXISTS idx_appointments_status_start
+    ON appointments (status, start_time);
+  `);
+
   await db.execute(`
     CREATE TABLE IF NOT EXISTS appointment_services (
       id TEXT PRIMARY KEY,
@@ -268,6 +330,12 @@ async function initializeDb(): Promise<void> {
       duration_minutes INTEGER NOT NULL,
       FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE CASCADE
     );
+  `);
+
+  // `WHERE appointment_id = ?` is the most repeated query shape in the API.
+  await db.execute(`
+    CREATE INDEX IF NOT EXISTS idx_appointment_services_appointment
+    ON appointment_services (appointment_id);
   `);
 
   await db.execute(`
@@ -291,6 +359,10 @@ async function initializeDb(): Promise<void> {
     await db.execute("ALTER TABLE notification_logs ADD COLUMN provider_message_id TEXT");
   }
   await db.execute("CREATE INDEX IF NOT EXISTS idx_notification_provider_id ON notification_logs (provider_message_id)");
+  // The dashboard's notification feed is `ORDER BY created_at DESC LIMIT 100`
+  // against a log that grows by one row per attempt and is never pruned; without
+  // this the whole log is materialised and sorted to return 100 rows.
+  await db.execute("CREATE INDEX IF NOT EXISTS idx_notification_logs_created_at ON notification_logs (created_at DESC)");
 
   await db.execute(`
     CREATE TABLE IF NOT EXISTS owner_settings (
@@ -346,6 +418,14 @@ async function initializeDb(): Promise<void> {
       args: [key, val],
     });
   }
+
+  // Record that this database now matches SCHEMA_VERSION, so later processes
+  // (and later cold starts) can skip the whole migration block above.
+  await db.execute({
+    sql: `INSERT INTO owner_settings (key, value) VALUES ('schema_version', ?)
+          ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+    args: [String(SCHEMA_VERSION)],
+  });
 
   global.__salonDbInitialized = true;
 }

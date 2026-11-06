@@ -3,14 +3,17 @@ import { revalidatePath } from "next/cache";
 import { requireOwnerAuth } from "@/lib/auth";
 import { getDb, initDb } from "@/lib/db";
 import { logError } from "@/lib/logger";
+import { invalidateTagsSafely, CACHE_TAGS } from "@/lib/server-cache";
 import crypto from "node:crypto";
 
 /**
- * The public homepage renders the service catalogue. Marking it for
- * revalidation means an owner's edit is visible on the next visit instead of
- * waiting for the time-based revalidate window to lapse.
+ * The public homepage renders the service catalogue, and the catalogue read is
+ * cached for the menu and the booking configuration. Dropping both here means an
+ * owner's edit is visible on the next visit instead of waiting for the
+ * revalidate window or the cache TTL to lapse.
  */
 function refreshPublicMenu(): void {
+  invalidateTagsSafely("owner.services", [CACHE_TAGS.catalogue]);
   try {
     revalidatePath("/");
   } catch {

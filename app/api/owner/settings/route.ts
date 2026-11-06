@@ -1,6 +1,7 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { requireOwnerAuth } from "@/lib/auth";
 import { getDb, initDb } from "@/lib/db";
+import { invalidateTagsSafely, CACHE_TAGS } from "@/lib/server-cache";
 
 const defaults = { pendingHoldMinutes: 30, maxAdvanceBookingDays: 30, slotIntervalMinutes: 15, bufferMinutes: 0 };
 const keys = { pendingHoldMinutes: "pending_hold_minutes", maxAdvanceBookingDays: "max_advance_booking_days", slotIntervalMinutes: "slot_interval_minutes", bufferMinutes: "salon_buffer_minutes" } as const;
@@ -35,6 +36,8 @@ export async function PUT(request: NextRequest) {
       }
       await tx.commit();
     } catch (error) { await tx.rollback(); throw error; }
+    // The booking rules the availability read path uses are cached; drop them.
+    invalidateTagsSafely("owner.settings", [CACHE_TAGS.config]);
     return NextResponse.json({ success: true, settings: body });
   } catch {
     return NextResponse.json({ success: false, error: "Could not save booking settings." }, { status: 400 });

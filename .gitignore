@@ -17,6 +17,10 @@
 /blob-report/
 /.playwright/
 
+# Mobile verification screenshots from a browser pass; evidence, not source.
+/mobile-shots/
+/.audit/
+
 # next.js
 /.next/
 /out/

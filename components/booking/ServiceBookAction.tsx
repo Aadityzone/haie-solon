@@ -2,10 +2,25 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import BookingDialog from "@/components/booking/BookingDialog";
+import dynamic from "next/dynamic";
+
+/**
+ * The wizard is fetched only when a visitor actually opens it.
+ *
+ * It used to be a static import, which placed the whole five-step wizard — its
+ * service picker, calendar, slot grid, and the modal animation runtime — into
+ * the initial JavaScript of every page that renders a service card. The
+ * `isOpen &&` guard below is a render guard, not a bundle guard, so a customer
+ * who never opened the dialog still downloaded and parsed all of it. On the
+ * public menu that cost was paid on every one of the hundred thousand visits.
+ *
+ * `ssr: false` because the dialog only ever exists after a click; rendering it
+ * on the server would ship its markup for an interaction that has not happened.
+ */
+const BookingDialog = dynamic(() => import("@/components/booking/BookingDialog"), { ssr: false });
 
 const actionClass =
-  "inline-flex min-h-11 items-center text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-champagne transition-colors hover:text-champagne-light focus-visible:outline-offset-4";
+  "inline-flex min-h-11 items-center text-[0.72rem] font-semibold uppercase tracking-[0.12em] text-champagne transition-colors hover:text-champagne-light focus-visible:outline-offset-4";
 
 interface ServiceBookActionProps {
   serviceId: string;

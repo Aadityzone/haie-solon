@@ -3,9 +3,18 @@ import { requireOwnerAuth } from "@/lib/auth";
 import { cleanupExpiredHolds } from "@/lib/booking-service";
 import { getDb, initDb } from "@/lib/db";
 import { istToUtcIso, utcIsoToIstParts } from "@/lib/time-utils";
+import { logError } from "@/lib/logger";
 import type { AppointmentStatus } from "@/lib/types";
 
 const STATUSES: AppointmentStatus[] = ["PENDING", "CONFIRMED", "REJECTED", "CANCELLED", "COMPLETED"];
+
+/** Built once at module scope; the previous form constructed one per day, per request. */
+const WEEK_DAY_LABEL = new Intl.DateTimeFormat("en-IN", {
+  timeZone: "Asia/Kolkata",
+  weekday: "short",
+  day: "numeric",
+  month: "short",
+});
 
 /** Shift a `YYYY-MM-DD` string by whole days without timezone drift. */
 function shiftDate(dateStr: string, days: number): string {
@@ -55,24 +64,38 @@ export async function GET() {
     const statusBreakdown = STATUSES.map((status) => ({ status, count: counts[status] ?? 0 }));
 
     // Per-day totals for the next seven days, including today.
-    const week: { date: string; label: string; total: number; pending: number }[] = [];
-    for (let offset = 0; offset < 7; offset += 1) {
-      const date = shiftDate(today, offset);
-      const result = await db.execute({
-        sql: `SELECT status, count(*) AS count FROM appointments
-              WHERE start_time >= ? AND start_time < ? AND status IN ('PENDING','CONFIRMED','COMPLETED')
-              GROUP BY status`,
-        args: [istToUtcIso(date, "00:00"), istToUtcIso(shiftDate(date, 1), "00:00")],
-      });
-      const byStatus = Object.fromEntries(result.rows.map((row) => [String(row.status), Number(row.count)]));
-      const pending = byStatus.PENDING ?? 0;
-      week.push({
-        date,
-        label: offset === 0 ? "Today" : new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", weekday: "short", day: "numeric", month: "short" }).format(new Date(`${date}T06:00:00Z`)),
-        total: Object.values(byStatus).reduce((sum, value) => sum + value, 0),
-        pending,
-      });
+    //
+    // This was seven sequential `GROUP BY status` queries, one per day, each
+    // awaited in turn — so the route's latency was the sum of seven round trips
+    // on top of the parallel batch above. One indexed range scan answers the
+    // whole week, bucketed by salon-local date in memory. Doing the bucketing
+    // here also avoids leaning on SQLite's date parsing to turn a stored UTC
+    // instant into an IST calendar day.
+    const weekResult = await db.execute({
+      sql: `SELECT start_time, status FROM appointments
+            WHERE start_time >= ? AND start_time < ? AND status IN ('PENDING','CONFIRMED','COMPLETED')`,
+      args: [istToUtcIso(today, "00:00"), istToUtcIso(shiftDate(today, 7), "00:00")],
+    });
+
+    const perDay = new Map<string, { total: number; pending: number }>();
+    for (const row of weekResult.rows) {
+      const date = utcIsoToIstParts(String(row.start_time)).date;
+      const entry = perDay.get(date) ?? { total: 0, pending: 0 };
+      entry.total += 1;
+      if (String(row.status) === "PENDING") entry.pending += 1;
+      perDay.set(date, entry);
     }
+
+    const week = Array.from({ length: 7 }, (_, offset) => {
+      const date = shiftDate(today, offset);
+      const entry = perDay.get(date) ?? { total: 0, pending: 0 };
+      return {
+        date,
+        label: offset === 0 ? "Today" : WEEK_DAY_LABEL.format(new Date(`${date}T06:00:00Z`)),
+        total: entry.total,
+        pending: entry.pending,
+      };
+    });
 
     return NextResponse.json({
       success: true,
@@ -87,7 +110,7 @@ export async function GET() {
       },
     });
   } catch (error: unknown) {
-    console.error("Overview error:", error);
+    logError("owner.overview", error);
     return NextResponse.json({ success: false, error: "Could not load the dashboard summary." }, { status: 500 });
   }
 }

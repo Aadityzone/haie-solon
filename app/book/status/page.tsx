@@ -88,10 +88,13 @@ function StatusContent() {
           Enter your booking reference code and the mobile number you booked with. Both are required, so only you can see your appointment.
         </p>
 
-        {/* Search form */}
-        <form onSubmit={handleSearch} className="mx-auto mt-6 grid max-w-md gap-2 sm:grid-cols-[1fr_1fr_auto]">
+        {/* Search form. The labels are visible rather than screen-reader-only:
+            once a customer starts typing, a placeholder disappears and the field
+            has no visible name at all on a phone. Input font size is set to 16px
+            globally (see globals.css) so iOS does not zoom the page on focus. */}
+        <form onSubmit={handleSearch} className="mx-auto mt-6 grid max-w-md gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end sm:gap-2">
           <div className="text-left">
-            <label htmlFor="booking-reference" className="sr-only">Booking reference code</label>
+            <label htmlFor="booking-reference" className="mb-1.5 block text-xs font-medium text-neutral-500">Booking reference</label>
             <input
               id="booking-reference"
               name="referenceCode"
@@ -101,12 +104,12 @@ function StatusContent() {
               spellCheck={false}
               value={inputRef}
               onChange={(e) => setInputRef(e.target.value.toUpperCase())}
-              placeholder="Reference, e.g. BK-XXXX…"
-              className="w-full rounded-sm border border-neutral-300 bg-elevated px-4 py-2.5 font-mono text-sm uppercase tracking-wider text-foreground outline-none focus:border-champagne focus:ring-1 focus:ring-champagne"
+              placeholder="BK-XXXX…"
+              className="w-full rounded-sm border border-neutral-300 bg-elevated px-4 py-2.5 font-mono uppercase tracking-wider text-foreground outline-none focus:border-champagne focus:ring-1 focus:ring-champagne"
             />
           </div>
           <div className="text-left">
-            <label htmlFor="booking-phone" className="sr-only">Mobile number used for the booking</label>
+            <label htmlFor="booking-phone" className="mb-1.5 block text-xs font-medium text-neutral-500">Mobile number</label>
             <input
               id="booking-phone"
               name="phone"
@@ -116,16 +119,16 @@ function StatusContent() {
               inputMode="tel"
               value={inputPhone}
               onChange={(e) => setInputPhone(e.target.value)}
-              placeholder="Mobile, e.g. 62808 66359"
-              className="w-full rounded-sm border border-neutral-300 bg-elevated px-4 py-2.5 text-sm text-foreground outline-none focus:border-champagne focus:ring-1 focus:ring-champagne"
+              placeholder="62808 66359"
+              className="w-full rounded-sm border border-neutral-300 bg-elevated px-4 py-2.5 text-foreground outline-none focus:border-champagne focus:ring-1 focus:ring-champagne"
             />
           </div>
           <button
             type="submit"
             disabled={loading}
-            className="btn-primary shrink-0 text-xs disabled:opacity-50"
+            className="btn-primary shrink-0 disabled:opacity-50"
           >
-            {loading ? "Searching…" : "Track"}
+            {loading ? "Searching…" : "Track request"}
           </button>
         </form>
       </div>
@@ -141,14 +144,16 @@ function StatusContent() {
         <div className="mt-10 rounded-sm border border-neutral-200 bg-elevated p-6 md:p-8 shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-neutral-100 pb-5 gap-3">
             <div>
-              <span className="text-[0.65rem] uppercase tracking-wider text-neutral-400">Reference Code</span>
+              <span className="text-xs uppercase tracking-wider text-neutral-400">Reference Code</span>
               <div className="font-mono text-xl font-bold text-foreground">{appointment.referenceCode}</div>
             </div>
             <div>{getStatusBadge(appointment.status)}</div>
           </div>
 
-          {/* Status Context Banner */}
-          <div className="mt-5 rounded-sm p-4 text-xs leading-relaxed border bg-neutral-50 border-neutral-200/80">
+          {/* Status Context Banner. `text-sm`: this is the sentence that tells a
+              customer whether they actually have an appointment, and it was set
+              at 12px. */}
+          <div className="mt-5 rounded-sm p-4 text-sm leading-relaxed border bg-neutral-50 border-neutral-200/80">
             {appointment.status === "PENDING" && (
               <p className="text-amber-200">
                 <strong>Pending confirmation:</strong> Your request is being reviewed by the salon. The appointment is not confirmed yet. Please contact the salon if you need an update.
@@ -172,23 +177,27 @@ function StatusContent() {
             )}
           </div>
 
-          {/* Details Table */}
+          {/* Details Table.
+              `gap-4` + `min-w-0` + `break-words` rather than bare spans in a
+              `justify-between` row: customer and service names are owner-entered
+              and can be long, and an unbreakable one used to widen the whole
+              card and scroll the page sideways on a phone. */}
           <div className="mt-6 space-y-3 text-sm">
-            <div className="flex justify-between py-2 border-b border-neutral-100">
-              <span className="text-neutral-500">Customer</span>
-              <span className="font-medium text-foreground">{appointment.customerName}</span>
+            <div className="flex justify-between gap-4 py-2 border-b border-neutral-100">
+              <span className="shrink-0 text-neutral-500">Customer</span>
+              <span className="min-w-0 break-words text-right font-medium text-foreground">{appointment.customerName}</span>
             </div>
-            <div className="flex justify-between py-2 border-b border-neutral-100">
-              <span className="text-neutral-500">Date & Time</span>
-              <span className="font-medium text-foreground">{appointment.date} at {appointment.time}</span>
+            <div className="flex justify-between gap-4 py-2 border-b border-neutral-100">
+              <span className="shrink-0 text-neutral-500">Date &amp; Time</span>
+              <span className="min-w-0 break-words text-right font-medium text-foreground">{appointment.date} at {appointment.time}</span>
             </div>
-            <div className="flex justify-between py-2 border-b border-neutral-100">
-              <span className="text-neutral-500">Appointment length</span>
-              <span className="font-medium text-foreground">{appointment.durationMinutes > 0 ? `${appointment.durationMinutes} minutes` : "To be confirmed"}</span>
+            <div className="flex justify-between gap-4 py-2 border-b border-neutral-100">
+              <span className="shrink-0 text-neutral-500">Appointment length</span>
+              <span className="min-w-0 break-words text-right font-medium text-foreground">{appointment.durationMinutes > 0 ? `${appointment.durationMinutes} minutes` : "To be confirmed"}</span>
             </div>
-            <div className="flex justify-between py-2 border-b border-neutral-100">
-              <span className="text-neutral-500">Price</span>
-              <span className="font-semibold text-foreground">{appointment.totalPriceRupees === null ? "To be confirmed" : `₹${appointment.totalPriceRupees.toLocaleString("en-IN")}`}</span>
+            <div className="flex justify-between gap-4 py-2 border-b border-neutral-100">
+              <span className="shrink-0 text-neutral-500">Price</span>
+              <span className="min-w-0 break-words text-right font-semibold text-foreground">{appointment.totalPriceRupees === null ? "To be confirmed" : `₹${appointment.totalPriceRupees.toLocaleString("en-IN")}`}</span>
             </div>
           </div>
 
@@ -199,9 +208,9 @@ function StatusContent() {
             </h4>
             <div className="space-y-2">
               {appointment.services?.map((svc, i) => (
-                <div key={i} className="flex items-center justify-between rounded bg-neutral-50 px-3.5 py-2 text-xs">
-                  <span className="font-medium text-neutral-800">{svc.name}</span>
-                  <span className="text-neutral-500">{svc.durationMinutes} min · {svc.priceRupees === null ? "Price to be confirmed" : `₹${svc.priceRupees.toLocaleString("en-IN")}`}</span>
+                <div key={i} className="flex items-start justify-between gap-3 rounded bg-neutral-50 px-3.5 py-2 text-sm">
+                  <span className="min-w-0 break-words font-medium text-neutral-800">{svc.name}</span>
+                  <span className="shrink-0 text-right text-neutral-500">{svc.durationMinutes} min · {svc.priceRupees === null ? "Price to be confirmed" : `₹${svc.priceRupees.toLocaleString("en-IN")}`}</span>
                 </div>
               ))}
             </div>

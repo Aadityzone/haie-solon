@@ -13,6 +13,8 @@ export default function Gallery() {
   const sectionRef = useRef<HTMLElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   useEffect(() => {
@@ -62,15 +64,23 @@ export default function Gallery() {
     return () => ctx.revert();
   }, []);
 
-  // Lock body scroll when lightbox is open
+  // Lock body scroll when the lightbox is open, and move focus into it.
+  //
+  // Without the focus move, opening the viewer left keyboard focus on the tile
+  // behind the overlay: Tab walked the page underneath, and a screen reader had
+  // no idea a dialog had appeared. Focus is returned to whatever opened it.
   useEffect(() => {
-    if (lightboxIndex !== null) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
+    if (lightboxIndex === null) return;
+
+    const previousOverflow = document.body.style.overflow;
+    const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    document.body.style.overflow = "hidden";
+    const frame = window.requestAnimationFrame(() => closeButtonRef.current?.focus());
+
     return () => {
-      document.body.style.overflow = "";
+      document.body.style.overflow = previousOverflow;
+      window.cancelAnimationFrame(frame);
+      previouslyFocused?.focus();
     };
   }, [lightboxIndex]);
 
@@ -78,6 +88,26 @@ export default function Gallery() {
     (e: KeyboardEvent) => {
       if (lightboxIndex === null) return;
       if (e.key === "Escape") setLightboxIndex(null);
+
+      // Keep Tab inside the viewer. It declares `aria-modal`, so letting focus
+      // escape to the page behind it would contradict what assistive technology
+      // has been told.
+      if (e.key === "Tab" && overlayRef.current) {
+        const items = Array.from(
+          overlayRef.current.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])')
+        );
+        if (items.length === 0) return;
+        const first = items[0];
+        const last = items[items.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+
       if (e.key === "ArrowRight")
         setLightboxIndex((prev) =>
           prev !== null ? (prev + 1) % galleryImages.length : null
@@ -117,7 +147,7 @@ export default function Gallery() {
             Salon-themed photographs for visual direction. Replace with the studio’s own approved portfolio before launch.
           </p>
         </div>
-        <p className="mt-7 text-center text-[0.62rem] uppercase tracking-[0.14em] text-neutral-500">
+        <p className="mt-7 text-center text-[0.7rem] uppercase tracking-[0.14em] text-neutral-500">
           All imagery is illustrative and is not presented as client work from this salon.
         </p>
 
@@ -137,7 +167,11 @@ export default function Gallery() {
                 src={image.src}
                 alt={image.alt}
                 fill
-                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                // Two columns with a 12px gap inside 20px of padding is about
+                // 45vw at the narrowest width. Claiming 100vw asked the browser
+                // for the 1200px candidate to fill a 162px tile — roughly six
+                // times the pixel area actually needed, on every tile.
+                sizes="(max-width: 640px) 45vw, (max-width: 1024px) 50vw, 33vw"
                 className="object-cover transition-transform duration-700 group-hover:scale-105"
                 loading="lazy"
               />
@@ -154,6 +188,7 @@ export default function Gallery() {
       <AnimatePresence>
         {lightboxIndex !== null && (
           <motion.div
+            ref={overlayRef}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -166,8 +201,9 @@ export default function Gallery() {
           >
             {/* Close button */}
             <button
+              ref={closeButtonRef}
               onClick={() => setLightboxIndex(null)}
-              className="absolute top-4 z-10 flex h-11 w-11 items-center justify-center text-ivory/70 transition-colors hover:text-ivory right-[max(0.5rem,env(safe-area-inset-right))]"
+              className="absolute z-10 flex h-11 w-11 items-center justify-center text-ivory/70 transition-colors hover:text-ivory right-[max(0.5rem,env(safe-area-inset-right))] top-[max(1rem,env(safe-area-inset-top))]"
               aria-label="Close lightbox"
             >
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -199,7 +235,7 @@ export default function Gallery() {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               transition={{ duration: 0.3 }}
-              className="relative mx-12 h-[70vh] w-full max-w-4xl sm:mx-16 sm:h-[75vh]"
+              className="relative mx-12 h-[70dvh] w-full max-w-4xl sm:mx-16 sm:h-[75dvh]"
               onClick={(e) => e.stopPropagation()}
             >
               <Image
@@ -208,7 +244,6 @@ export default function Gallery() {
                 fill
                 sizes="90vw"
                 className="object-contain"
-                priority
               />
               <p className="absolute -bottom-8 left-0 right-0 text-center text-sm text-neutral-400">
                 {galleryImages[lightboxIndex].alt}

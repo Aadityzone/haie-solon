@@ -66,7 +66,10 @@ export async function POST(request: NextRequest) {
 
     const tx = await db.transaction("write");
     try {
-      const conflict = await tx.execute({ sql: `SELECT reference_code FROM appointments WHERE (status = 'CONFIRMED' OR (status = 'PENDING' AND hold_expires_at > ?)) AND NOT (end_time <= ? OR start_time >= ?) LIMIT 1`, args: [now, startIso, endIso] });
+      // Sargable overlap: `start_time < end AND end_time > start` selects the
+      // same rows as the negated form previously used here, but the query
+      // planner can seek on it instead of scanning every appointment.
+      const conflict = await tx.execute({ sql: `SELECT reference_code FROM appointments WHERE (status = 'CONFIRMED' OR (status = 'PENDING' AND hold_expires_at > ?)) AND start_time < ? AND end_time > ? LIMIT 1`, args: [now, endIso, startIso] });
       if (conflict.rows.length) throw new SalonError(`This period overlaps appointment ${String(conflict.rows[0].reference_code)}.`);
       await tx.execute({
       sql: `INSERT INTO blocked_periods (id, start_time, end_time, reason, created_at)

@@ -79,14 +79,14 @@ export default function ServiceHighlights() {
                   sizes="(max-width: 640px) 90vw, (max-width: 1024px) 45vw, 23vw"
                   className="object-cover transition-transform duration-700 group-hover:scale-[1.035]"
                 />
-                <span className="absolute bottom-3 left-3 border border-white/25 bg-background/75 px-2 py-1 text-[0.58rem] uppercase tracking-[0.12em] text-foreground">Illustrative image</span>
+                <span className="absolute bottom-3 left-3 border border-white/25 bg-background/75 px-2 py-1 text-[0.7rem] uppercase tracking-[0.12em] text-foreground">Illustrative image</span>
               </div>
               <div className="mt-4 flex items-baseline justify-between gap-3 border-b border-border pb-3">
                 <h3 className="text-xl sm:text-2xl">{item.title}</h3>
                 <span className="text-lg text-champagne transition-transform group-hover:translate-x-1" aria-hidden="true">↗</span>
               </div>
               <p className="mt-3 text-sm leading-6 text-neutral-500">{item.description}</p>
-              <p className="mt-3 text-[0.62rem] uppercase tracking-[0.1em] text-neutral-500">Ask about availability and pricing</p>
+              <p className="mt-3 text-[0.7rem] uppercase tracking-[0.1em] text-neutral-500">Ask about availability and pricing</p>
             </Link>
           </article>
         ))}

@@ -3,50 +3,35 @@ import { createBookingRequest } from "@/lib/booking-service";
 import { databaseErrorContext } from "@/lib/db";
 import { isUserFacing, stripInternalCode } from "@/lib/errors";
 import { logError } from "@/lib/logger";
-
-// Simple rate-limiting map: ip -> timestamps[]
-const rateLimitMap = new Map<string, number[]>();
-const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
-const MAX_REQUESTS_PER_WINDOW = 8;
+import { rateLimit, clientIp, rateLimitHeaders, RATE_LIMITS } from "@/lib/rate-limit";
 
 /**
  * The ceiling is raised only when the deployment explicitly sets
  * `BOOKING_RATE_LIMIT_MAX`, which the browser suite does for its own
  * single-process server so that one run's requests do not exhaust the budget.
- * Left unset — as in every real deployment — the limit above applies.
+ * Left unset — as in every real deployment — the default applies.
+ *
+ * Clamped, because the variable used to accept any positive integer: a typo or a
+ * compromised environment could otherwise turn the limit off entirely.
  */
+const MAX_CONFIGURABLE_CEILING = 10_000;
+
 function requestCeiling(): number {
   const configured = Number(process.env.BOOKING_RATE_LIMIT_MAX);
-  return Number.isInteger(configured) && configured > 0 ? configured : MAX_REQUESTS_PER_WINDOW;
-}
-
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const timestamps = rateLimitMap.get(ip) || [];
-  const validTimestamps = timestamps.filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
-
-  if (validTimestamps.length >= requestCeiling()) {
-    rateLimitMap.set(ip, validTimestamps);
-    return false;
-  }
-
-  validTimestamps.push(now);
-  rateLimitMap.set(ip, validTimestamps);
-  return true;
+  if (!Number.isInteger(configured) || configured <= 0) return RATE_LIMITS.create.limit;
+  return Math.min(configured, MAX_CONFIGURABLE_CEILING);
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const forwardedFor = request.headers.get("x-forwarded-for");
-    const ip = forwardedFor ? forwardedFor.split(",")[0].trim() : "127.0.0.1";
-
-    if (!checkRateLimit(ip)) {
+    const limit = await rateLimit("booking-create", clientIp(request), requestCeiling(), RATE_LIMITS.create.windowMs);
+    if (!limit.allowed) {
       return NextResponse.json(
         {
           success: false,
           error: "Too many booking requests from your network. Please wait a few minutes before trying again.",
         },
-        { status: 429 }
+        { status: 429, headers: rateLimitHeaders(limit) }
       );
     }
 

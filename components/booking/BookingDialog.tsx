@@ -66,6 +66,32 @@ export default function BookingDialog({ isOpen, onClose, preselectedServiceIds =
     };
   }, [isOpen, onClose]);
 
+  // Keep the sheet inside the *visual* viewport.
+  //
+  // `dvh` tracks browser chrome but not the on-screen keyboard, and iOS overlays
+  // the keyboard rather than resizing the layout viewport. On a phone that put
+  // the lower half of the sheet — including the Review and Confirm bar — behind
+  // the keyboard, so the customer had to dismiss it to finish booking. The
+  // visual viewport reports the genuinely visible rectangle, so clamping the
+  // sheet to it keeps the action bar reachable while typing.
+  useEffect(() => {
+    if (!isOpen) return;
+    const viewport = window.visualViewport;
+    const surface = surfaceRef.current;
+    if (!viewport || !surface) return;
+    const apply = () => {
+      surface.style.maxHeight = `${Math.round(viewport.height * 0.94)}px`;
+    };
+    apply();
+    viewport.addEventListener("resize", apply);
+    viewport.addEventListener("scroll", apply);
+    return () => {
+      viewport.removeEventListener("resize", apply);
+      viewport.removeEventListener("scroll", apply);
+      surface.style.maxHeight = "";
+    };
+  }, [isOpen]);
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -89,7 +115,7 @@ export default function BookingDialog({ isOpen, onClose, preselectedServiceIds =
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 24 }}
             transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-            className="relative z-10 flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden border border-border bg-background shadow-2xl sm:max-h-[90vh] sm:rounded-sm"
+            className="relative z-10 flex max-h-[92dvh] w-full max-w-2xl flex-col overflow-hidden border border-border bg-background shadow-2xl sm:max-h-[90dvh] sm:rounded-sm"
           >
             <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border bg-elevated px-4 py-3.5 sm:px-6">
               <div className="min-w-0">

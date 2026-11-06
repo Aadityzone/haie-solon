@@ -2,21 +2,58 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import gsap from "gsap";
+
+/**
+ * `useLayoutEffect` runs after hydration but before the browser paints, so GSAP
+ * can set an entrance's start state in the same frame React commits, rather than
+ * a paint later. It does not remove the gap between the server's HTML arriving
+ * and React hydrating — nothing on the client can, and Next's own guidance says
+ * so: `useLayoutEffect` "prevents the flash between hydration and paint, but not
+ * the flash between the HTML arriving and React hydrating".
+ *
+ * Because that gap cannot be closed, the entrance below is built so that a
+ * transiently visible-then-translated hero is not a defect: nothing a visitor's
+ * first paint depends on is animated from `opacity: 0`.
+ *
+ * The server has no DOM, so it falls back to `useEffect` there.
+ */
+const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 /** Cinematic salon introduction. All imagery is illustrative until owner approved. */
 export default function AnimatedMarqueeHero() {
   const rootRef = useRef<HTMLElement>(null);
   const [marqueePaused, setMarqueePaused] = useState(false);
 
-  useEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     const root = rootRef.current;
     if (!root || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const context = gsap.context(() => {
-      gsap.fromTo("[data-hero-copy]", { opacity: 0, y: 18 }, {
-        opacity: 1, y: 0, duration: 0.8, stagger: 0.1, ease: "power3.out",
-      });
+      // One orchestrated timeline for the hero: the copy settles first, then the
+      // visual column follows while the copy is still finishing. Scoped to the
+      // hero root and reverted on unmount, so no timeline or inline style leaks
+      // into the rest of the page.
+      //
+      // The two elements that can be the Largest Contentful Paint — the headline
+      // and the preloaded hero image — are moved with `transform` only, never
+      // faded in from `opacity: 0`. A browser does not treat a fully transparent
+      // element as a rendered LCP candidate, so fading either one in defers LCP
+      // until after the JavaScript has downloaded, hydrated, and animated:
+      // exactly the work an entrance animation is supposed to be invisible
+      // against. Translation changes no pixel's visibility, so the paint that
+      // establishes LCP happens on the first frame regardless of when the
+      // animation starts. The supporting copy keeps its fade; it is never the
+      // largest element on the page.
+      const timeline = gsap.timeline({ defaults: { ease: "power3.out" } });
+      timeline
+        .fromTo(
+          "[data-hero-copy]:not(#hero-title)",
+          { opacity: 0, y: 18 },
+          { opacity: 1, y: 0, duration: 0.8, stagger: 0.1 },
+        )
+        .fromTo("#hero-title", { y: 22 }, { y: 0, duration: 0.8 }, 0)
+        .fromTo("[data-hero-visual]", { y: 24 }, { y: 0, duration: 0.9 }, "-=0.5");
     }, root);
     return () => context.revert();
   }, []);
@@ -43,14 +80,17 @@ export default function AnimatedMarqueeHero() {
           </p>
         </div>
 
-        <div className="relative min-w-0 lg:pl-2">
+        <div data-hero-visual className="relative min-w-0 lg:pl-2">
           <div className="absolute -right-3 -top-3 h-[42%] w-[42%] border border-champagne/50 sm:-right-4 sm:-top-4" aria-hidden="true" />
           <div className="relative aspect-[4/3] overflow-hidden bg-elevated sm:aspect-[1.16/1]">
-            <Image src="/images/hero.jpg" alt="Illustrative cinematic salon interior; not a verified photograph of this business" fill priority sizes="(max-width: 1024px) 100vw, 56vw" className="object-cover" />
+            {/* `preload` replaces the deprecated `priority` prop in Next 16. It
+                inserts the preload link and keeps the image eager, which is
+                right for the element that is the LCP candidate here. */}
+            <Image src="/images/hero.jpg" alt="Illustrative cinematic salon interior; not a verified photograph of this business" fill preload sizes="(max-width: 1024px) 100vw, 56vw" className="object-cover" />
             <div className="absolute inset-0 bg-gradient-to-t from-background/45 via-transparent to-transparent" aria-hidden="true" />
-            <span className="absolute bottom-4 left-4 text-[0.62rem] uppercase tracking-[0.14em] text-foreground/80">Illustrative salon imagery</span>
+            <span className="absolute bottom-4 left-4 text-[0.7rem] uppercase tracking-[0.14em] text-foreground/80">Illustrative salon imagery</span>
           </div>
-          <div className="mt-4 flex items-center justify-between border-t border-border pt-3 text-[0.65rem] uppercase tracking-[0.14em] text-neutral-500">
+          <div className="mt-4 flex items-center justify-between border-t border-border pt-3 text-[0.7rem] uppercase tracking-[0.14em] text-neutral-500">
             <span>Hair · Care · Personal style</span><span>Patiala, Punjab</span>
           </div>
         </div>

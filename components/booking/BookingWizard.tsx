@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { salonConfig } from "@/config/salon";
 import type { Appointment, BookingRules, ServiceItem, SlotAvailability } from "@/lib/types";
 import { formatClockTime, formatDuration, formatRupees, formatSalonDate, formatSalonInstant, formatTotal } from "@/lib/money";
 import { addDays } from "@/lib/salon-dates";
@@ -489,6 +490,20 @@ export default function BookingWizard({
   // --- Confirmation ----------------------------------------------------------
   if (step === "done" && created) {
     const reference = created.referenceCode;
+    const whatsappNumber = salonConfig.contact.phone.replace(/\D/g, "");
+    const whatsappMessage = [
+      "Hello, I just submitted an appointment request through your website.",
+      "",
+      `Booking reference: ${reference}`,
+      `Name: ${created.customerName}`,
+      `Date: ${formatSalonDate(selectedDate)}`,
+      `Time: ${formatClockTime(selectedTime)} IST`,
+      `Services: ${(created.services ?? []).map((service) => service.serviceName).join(", ") || selectedServices.map((service) => service.name).join(", ")}`,
+      `Estimated total: ${created.totalPriceRupees === null ? "To be confirmed by the salon" : formatRupees(created.totalPriceRupees)}`,
+      "Status: Pending approval, not yet confirmed.",
+      "Please review my request and let me know once it is confirmed.",
+    ].join("\n");
+    const whatsappHref = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(whatsappMessage)}`;
     return (
       <div ref={stepPanelRef} tabIndex={-1} className="mx-auto max-w-2xl scroll-mt-24 outline-none">
         <div className="surface-panel p-5 sm:p-7">
@@ -585,8 +600,27 @@ export default function BookingWizard({
             )}
           </div>
 
-          <div className="mt-6 flex flex-col gap-2 sm:flex-row">
-            <Link href={`/book/status?ref=${encodeURIComponent(reference)}`} className="btn-primary text-xs">
+          <div className="mt-6 border border-[#25D366]/40 bg-[#25D366]/[0.06] p-4 sm:p-5">
+            <p className="text-[0.62rem] font-semibold uppercase tracking-[0.16em] text-[#25D366]">
+              Next step · WhatsApp
+            </p>
+            <h4 className="mt-2 text-lg text-foreground">Send your request to the salon</h4>
+            <p className="mt-2 text-sm leading-6 text-neutral-500">
+              We’ve prepared a message with your booking reference and appointment details. Review it in WhatsApp,
+              then tap Send. Your appointment remains pending until the salon confirms it.
+            </p>
+            <a
+              href={whatsappHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 bg-[#25D366] px-5 py-3 text-sm font-semibold text-[#062b14] transition-colors hover:bg-[#20bd5a] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#25D366] sm:w-auto"
+            >
+              Continue on WhatsApp <span aria-hidden="true">↗</span>
+            </a>
+          </div>
+
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+            <Link href={`/book/status?ref=${encodeURIComponent(reference)}`} className="btn-secondary text-xs">
               Check this request
             </Link>
             <button type="button" onClick={restart} className="btn-secondary text-xs">Book another appointment</button>

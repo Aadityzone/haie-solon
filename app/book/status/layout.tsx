@@ -14,7 +14,7 @@ export const metadata: Metadata = {
     url: "/book/status",
   },
   robots: {
-    index: true,
+    index: false,
     follow: true,
   },
 };

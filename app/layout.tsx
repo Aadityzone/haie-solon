@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { salonConfig } from "@/config/salon";
 import MotionProvider from "@/components/MotionProvider";
 import MobileActionBar from "@/components/MobileActionBar";
 
@@ -31,26 +30,34 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: `${salonConfig.name} — ${salonConfig.tagline} in ${salonConfig.location.city}`,
-  description: `${salonConfig.description} Send an appointment request online; timing and price are confirmed by the salon.`,
+  title: {
+    default: "Salman Unisex Hair Saloon & Academy — Patiala, Punjab",
+    template: "%s | Salman Unisex Hair Saloon & Academy",
+  },
+  description:
+    "Professional grooming, modern hairstyles and expert salon services at Salman Unisex Hair Saloon & Academy. Located near Punjabi University, Patiala, Punjab. Book an appointment online.",
   keywords: [
     "salon",
     "unisex salon",
     "hair salon",
     "beauty salon",
-    salonConfig.location.city,
-    salonConfig.location.state,
+    "Patiala",
+    "Punjab",
     "haircut",
     "grooming",
+    "beard trim",
     "hair colour",
-    "bridal styling",
+    "hair academy",
+    "Salman salon",
+    "salon near Punjabi University",
   ],
   openGraph: {
-    title: `${salonConfig.name} — ${salonConfig.tagline}`,
-    description: salonConfig.description,
+    title: "Salman Unisex Hair Saloon & Academy — Patiala",
+    description:
+      "Professional grooming, modern hairstyles and expert salon services in Patiala, Punjab.",
     type: "website",
     locale: "en_IN",
-    siteName: salonConfig.name,
+    siteName: "Salman Unisex Hair Saloon & Academy",
   },
   robots: {
     index: true,
@@ -67,6 +74,40 @@ export default function RootLayout({
     <html lang="en" className="scroll-smooth" data-scroll-behavior="smooth">
       <head>
         <link rel="icon" href="/favicon.ico" sizes="any" />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "HairSalon",
+              name: "Salman Unisex Hair Saloon & Academy",
+              description:
+                "Professional grooming, modern hairstyles and expert salon services in Patiala, Punjab.",
+              telephone: "+919917953267",
+              email: "Salmanmalik29452@gmail.com",
+              address: {
+                "@type": "PostalAddress",
+                streetAddress:
+                  "Plot No. 11, Man Dhaba Gali, Opposite Bawa PG, Near Punjabi University",
+                addressLocality: "Patiala",
+                addressRegion: "Punjab",
+                postalCode: "147002",
+                addressCountry: "IN",
+              },
+              geo: {
+                "@type": "GeoCoordinates",
+                latitude: 30.3558333,
+                longitude: 76.4561667,
+              },
+              url: "https://your-domain.com",
+              sameAs: ["https://www.instagram.com/salman_18999/"],
+              priceRange: "₹₹",
+              currenciesAccepted: "INR",
+              paymentAccepted: "Cash",
+              image: "https://your-domain.com/images/hero.jpg",
+            }),
+          }}
+        />
       </head>
       <body className="min-h-screen bg-background text-foreground antialiased">
         <a href="#main-content" className="sr-only z-[100] bg-champagne px-4 py-3 font-medium text-charcoal focus:not-sr-only focus:fixed focus:left-4 focus:top-4">

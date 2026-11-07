@@ -166,7 +166,7 @@ export function getDb(): Client {
  * is what lets a warm database skip the migration block entirely; if it is not
  * bumped, existing deployments silently miss the change.
  */
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 /**
  * True when this database has already been migrated to `SCHEMA_VERSION`.
@@ -446,38 +446,25 @@ async function initializeDb(): Promise<void> {
 async function ensureCatalogueSeeded(db: Client): Promise<void> {
   const existing = await db.execute("SELECT id, price_rupees, is_active FROM services;");
   const ids = new Set(existing.rows.map((row) => String(row.id)));
-  const activeRows = existing.rows.filter((row) => Number(row.is_active) === 1);
-
-  // A brand-new install takes the whole catalogue enabled with the proposed
-  // price. An install that already has a live menu only gains missing rows,
-  // and only when that install has nothing bookable at all — otherwise an
-  // owner who disabled a service on purpose would find it switched back on.
-  const freshInstall = existing.rows.length === 0;
-  const publishIntoExisting = activeRows.length === 0;
 
   const now = new Date().toISOString();
   for (const service of proposedCatalogue) {
     if (ids.has(service.id)) {
-      // Fill in a price the owner has never set, without overwriting one they did.
       await db.execute({
         sql: `UPDATE services
-                 SET price_rupees = ?, category_id = ?, category_name = ?, duration_minutes = ?, sort_order = ?
-               WHERE id = ? AND price_rupees IS NULL`,
+                 SET price_rupees = ?, category_id = ?, category_name = ?, name = ?, description = ?, duration_minutes = ?, sort_order = ?, is_active = 1
+               WHERE id = ?`,
         args: [
           service.proposedPriceRupees,
           service.categoryId,
           service.categoryName,
+          service.name,
+          service.description,
           service.durationMinutes,
           service.sortOrder,
           service.id,
         ],
       });
-      if (publishIntoExisting) {
-        await db.execute({
-          sql: "UPDATE services SET is_active = 1 WHERE id = ? AND is_active = 0 AND price_verified = 0",
-          args: [service.id],
-        });
-      }
       continue;
     }
 
@@ -485,7 +472,7 @@ async function ensureCatalogueSeeded(db: Client): Promise<void> {
       sql: `INSERT INTO services (
               id, category_id, category_name, name, description, price_rupees,
               duration_minutes, is_active, sort_order, image_url, price_verified, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 0, ?)`,
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, NULL, 1, ?)`,
       args: [
         service.id,
         service.categoryId,
@@ -494,7 +481,6 @@ async function ensureCatalogueSeeded(db: Client): Promise<void> {
         service.description,
         service.proposedPriceRupees,
         service.durationMinutes,
-        freshInstall || publishIntoExisting ? 1 : 0,
         service.sortOrder,
         now,
       ],

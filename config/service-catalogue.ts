@@ -1,21 +1,20 @@
 /**
- * Authoritative service catalogue.
- * ================================
+ * Authoritative service catalogue for Salman Unisex Hair Saloon & Academy
+ * =========================================================================
  *
- * This is the single source of truth for the *proposed* starting catalogue. It
- * is used in exactly two places:
+ * This is the single source of truth for the salon service catalogue.
  *
- *  1. `lib/db.ts` seeds these services into the database on first run.
- *  2. The owner dashboard offers them as "suggested starting points".
+ * Verified Core Pricing:
+ * - Haircut: ₹100 (First-time customers: ₹50)
+ * - Beard Grooming: ₹50
+ * - Haircut + Beard Combo: ₹150 (₹100 + ₹50 combined price, not discounted)
+ * - O3+ D-Tan Pack: ₹200
  *
- * Seeding publishes the proposed price as the *starting* price and enables the
- * row, so a first-run install has a working booking flow instead of an empty
- * menu. The values stay editable, and every customer surface labels them as
- * provisional: `services.price_verified` records whether the owner has saved
- * that row, and the public menu says so until they do.
- *
- * Prices and durations are a proposal from the project brief, not confirmed
- * salon rates. The public site reads the database, never this file.
+ * Additional services from Google Business Profile:
+ * - Hair colouring, Hairstyling, Blowdry, Body waxing, Children's cuts,
+ *   Curly hair, Dreadlocks, Hair extensions, Hair highlighting, Hair straightening,
+ *   Hair treatments, Keratin treatments, Shampoo & conditioning, Shaving.
+ * Unconfirmed prices are marked with null ("Ask in salon for pricing").
  */
 
 export interface ProposedService {
@@ -25,112 +24,175 @@ export interface ProposedService {
   description: string;
   categoryId: string;
   categoryName: string;
-  /** Proposed price in whole rupees. Review before publishing. */
-  proposedPriceRupees: number;
+  /** Verified price in whole rupees, or null for "Ask in salon for pricing". */
+  proposedPriceRupees: number | null;
   durationMinutes: number;
   /** Position within the menu. */
   sortOrder: number;
 }
 
 export const proposedCatalogue: ProposedService[] = [
+  // --- Core Services with Verified Pricing ---
   {
-    id: "svc-classic-haircut",
-    name: "Classic Haircut",
-    description: "A classic haircut, finished to your preference.",
-    categoryId: "cuts-styling",
-    categoryName: "Cuts & Styling",
-    proposedPriceRupees: 300,
+    id: "svc-haircut",
+    name: "Haircut",
+    description: "Professional haircut tailored to your personal style. Special first-time customer offer: ₹50.",
+    categoryId: "core-cuts",
+    categoryName: "Haircut & Grooming",
+    proposedPriceRupees: 100,
     durationMinutes: 30,
     sortOrder: 1,
   },
   {
-    id: "svc-haircut-styling",
-    name: "Haircut & Styling",
-    description: "A haircut followed by a considered styling finish.",
-    categoryId: "cuts-styling",
-    categoryName: "Cuts & Styling",
-    proposedPriceRupees: 500,
-    durationMinutes: 45,
+    id: "svc-beard-grooming",
+    name: "Beard Grooming",
+    description: "Precision beard shaping, edging, trimming and clean grooming.",
+    categoryId: "core-cuts",
+    categoryName: "Haircut & Grooming",
+    proposedPriceRupees: 50,
+    durationMinutes: 20,
     sortOrder: 2,
   },
   {
-    id: "svc-shampoo-blow-dry",
-    name: "Shampoo & Blow-Dry",
-    description: "A shampoo and blow-dry finish.",
-    categoryId: "styling",
-    categoryName: "Styling",
-    proposedPriceRupees: 350,
-    durationMinutes: 30,
+    id: "svc-haircut-beard-combo",
+    name: "Haircut + Beard Combo",
+    description: "Combined haircut and beard grooming session (₹100 haircut + ₹50 beard grooming).",
+    categoryId: "combos",
+    categoryName: "Combo Packages",
+    proposedPriceRupees: 150,
+    durationMinutes: 45,
     sortOrder: 3,
   },
   {
-    id: "svc-hair-spa",
-    name: "Hair Spa",
-    description: "A hair spa service; details to be confirmed by the salon.",
-    categoryId: "care-treatments",
-    categoryName: "Care & Treatments",
-    proposedPriceRupees: 800,
-    durationMinutes: 60,
+    id: "svc-o3-dtan-pack",
+    name: "O3+ D-Tan Pack",
+    description: "Professional O3+ de-tan treatment pack for radiant, clean and refreshed skin.",
+    categoryId: "skin-care",
+    categoryName: "Skin & Facial Care",
+    proposedPriceRupees: 200,
+    durationMinutes: 30,
     sortOrder: 4,
   },
+
+  // --- Additional Services from Google Business Profile ---
   {
-    id: "svc-deep-conditioning",
-    name: "Deep Conditioning",
-    description: "A deep conditioning service; products and process to be confirmed.",
-    categoryId: "care-treatments",
-    categoryName: "Care & Treatments",
-    proposedPriceRupees: 600,
-    durationMinutes: 45,
+    id: "svc-hair-colouring",
+    name: "Hair Colouring & Highlighting",
+    description: "Global hair colouring, streaks, highlights and custom tone balancing.",
+    categoryId: "colour-styling",
+    categoryName: "Hair Colour & Highlights",
+    proposedPriceRupees: null,
+    durationMinutes: 60,
     sortOrder: 5,
   },
   {
-    id: "svc-global-colour",
-    name: "Global Hair Colour",
-    description: "A global hair colour service; a consultation may be needed.",
-    categoryId: "colour",
-    categoryName: "Colour",
-    proposedPriceRupees: 1500,
-    durationMinutes: 120,
+    id: "svc-hairstyling-blowdry",
+    name: "Hairstyling & Blowdry",
+    description: "Modern hairstyling, volume blowdry, and event finishing.",
+    categoryId: "styling",
+    categoryName: "Hairstyling & Finishing",
+    proposedPriceRupees: null,
+    durationMinutes: 30,
     sortOrder: 6,
   },
   {
-    id: "svc-highlights",
-    name: "Highlights",
-    description: "Highlights; the final approach is discussed with the salon.",
-    categoryId: "colour",
-    categoryName: "Colour",
-    proposedPriceRupees: 2000,
-    durationMinutes: 150,
+    id: "svc-keratin-treatment",
+    name: "Keratin Treatment",
+    description: "Intense smoothing and frizz-free keratin protein treatment.",
+    categoryId: "treatments",
+    categoryName: "Hair Treatments & Keratin",
+    proposedPriceRupees: null,
+    durationMinutes: 90,
     sortOrder: 7,
   },
   {
-    id: "svc-beard-trim",
-    name: "Beard Trim",
-    description: "A beard trim and tidy-up.",
-    categoryId: "grooming",
-    categoryName: "Grooming",
-    proposedPriceRupees: 150,
-    durationMinutes: 15,
+    id: "svc-hair-treatments",
+    name: "Hair Treatments & Spa",
+    description: "Deep conditioning, scalp care, and revitalizing hair spa therapy.",
+    categoryId: "treatments",
+    categoryName: "Hair Treatments & Keratin",
+    proposedPriceRupees: null,
+    durationMinutes: 45,
     sortOrder: 8,
   },
   {
-    id: "svc-occasion-styling",
-    name: "Occasion Styling",
-    description: "Styling for an occasion; the final look is discussed with you.",
-    categoryId: "styling",
-    categoryName: "Styling",
-    proposedPriceRupees: 1200,
-    durationMinutes: 60,
+    id: "svc-hair-straightening",
+    name: "Hair Straightening",
+    description: "Long-lasting hair straightening, rebonding, and smoothening service.",
+    categoryId: "treatments",
+    categoryName: "Hair Treatments & Keratin",
+    proposedPriceRupees: null,
+    durationMinutes: 90,
     sortOrder: 9,
   },
   {
-    id: "svc-smoothening-consultation",
-    name: "Hair Smoothening Consultation",
-    description: "A consultation to discuss smoothening options.",
-    categoryId: "consultation",
-    categoryName: "Consultation",
-    proposedPriceRupees: 0,
-    durationMinutes: 30,
+    id: "svc-childrens-cuts",
+    name: "Children's Cuts",
+    description: "Patient, stylish haircuts for kids and students.",
+    categoryId: "core-cuts",
+    categoryName: "Haircut & Grooming",
+    proposedPriceRupees: null,
+    durationMinutes: 25,
     sortOrder: 10,
+  },
+  {
+    id: "svc-curly-hair",
+    name: "Curly Hair Care",
+    description: "Specialized cutting, hydration and styling for natural curls and texture.",
+    categoryId: "specialized",
+    categoryName: "Specialized Hair Services",
+    proposedPriceRupees: null,
+    durationMinutes: 45,
+    sortOrder: 11,
+  },
+  {
+    id: "svc-dreadlocks",
+    name: "Dreadlocks",
+    description: "Dreadlocks creation, maintenance, retwisting and styling.",
+    categoryId: "specialized",
+    categoryName: "Specialized Hair Services",
+    proposedPriceRupees: null,
+    durationMinutes: 60,
+    sortOrder: 12,
+  },
+  {
+    id: "svc-hair-extensions",
+    name: "Hair Extensions",
+    description: "Natural hair extension consultation, installation, and blending.",
+    categoryId: "specialized",
+    categoryName: "Specialized Hair Services",
+    proposedPriceRupees: null,
+    durationMinutes: 60,
+    sortOrder: 13,
+  },
+  {
+    id: "svc-body-waxing",
+    name: "Body Waxing",
+    description: "Smooth and hygienic body waxing services.",
+    categoryId: "grooming-care",
+    categoryName: "Grooming & Shaving",
+    proposedPriceRupees: null,
+    durationMinutes: 30,
+    sortOrder: 14,
+  },
+  {
+    id: "svc-shampoo-conditioning",
+    name: "Shampoo & Conditioning",
+    description: "Deep scalp wash, head massage, and nourishing conditioning.",
+    categoryId: "treatments",
+    categoryName: "Hair Treatments & Keratin",
+    proposedPriceRupees: null,
+    durationMinutes: 20,
+    sortOrder: 15,
+  },
+  {
+    id: "svc-shaving",
+    name: "Shaving",
+    description: "Traditional clean shave with hot towel prep and aftershave balm.",
+    categoryId: "grooming-care",
+    categoryName: "Grooming & Shaving",
+    proposedPriceRupees: null,
+    durationMinutes: 20,
+    sortOrder: 16,
   },
 ];

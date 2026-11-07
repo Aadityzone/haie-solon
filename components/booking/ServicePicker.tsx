@@ -119,17 +119,17 @@ export default function ServicePicker({
                       {isSelected ? "✓" : ""}
                     </span>
                   </div>
-                  <h4 className="mt-2 text-lg leading-snug text-foreground">{service.name}</h4>
+                  <h4 className="mt-2 text-lg font-semibold leading-snug text-ivory tracking-wide">{service.name}</h4>
                   {service.description && (
-                    <p className="mt-1.5 text-sm leading-6 text-neutral-500">{service.description}</p>
+                    <p className="mt-1.5 text-sm leading-6 text-neutral-300">{service.description}</p>
                   )}
                 </div>
 
                 <div className="flex items-end justify-between gap-3 border-t border-border pt-3">
-                  <span className="text-xs text-neutral-500 tabular-nums">{formatDuration(service.durationMinutes)}</span>
+                  <span className="text-xs text-neutral-400 tabular-nums">{formatDuration(service.durationMinutes)}</span>
                   <span className="text-right">
-                    <span className="block text-sm text-foreground tabular-nums">
-                      {service.priceRupees === null ? "Price on request" : formatRupees(service.priceRupees)}
+                    <span className={`block tabular-nums ${service.priceRupees === null ? "text-xs font-medium text-neutral-300" : "text-sm font-bold text-champagne"}`}>
+                      {service.priceRupees === null ? "Ask in salon for pricing" : formatRupees(service.priceRupees)}
                     </span>
                     {service.priceRupees !== null && !service.priceVerified && (
                       <span className="mt-0.5 block text-[0.7rem] uppercase tracking-[0.1em] text-neutral-500">

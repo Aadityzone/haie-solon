@@ -1,21 +1,13 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { serviceHighlights } from "@/config/salon";
+import { verifiedCorePrices, additionalSalonServices } from "@/config/salon";
 
 gsap.registerPlugin(ScrollTrigger);
 
-/**
- * Editorial direction cards. Deliberately separate from the owner-configured
- * menu: these four directions are presentation, never a price list.
- *
- * Motion is scoped and reversible, matches the gallery reveal, and is skipped
- * entirely when the visitor asks for reduced motion.
- */
 export default function ServiceHighlights() {
   const rootRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
@@ -58,38 +50,164 @@ export default function ServiceHighlights() {
   }, []);
 
   return (
-    <div ref={rootRef}>
-      <div ref={headerRef} className="mb-12 grid gap-6 border-b border-border pb-7 md:grid-cols-[1fr_20rem] md:items-end md:gap-12">
-        <div>
-          <p className="eyebrow">The service edit</p>
-          <h2 className="mt-4 max-w-3xl text-4xl leading-[1.05] text-balance sm:text-5xl lg:text-6xl">Good hair begins with a conversation.</h2>
+    <div ref={rootRef} className="space-y-12">
+      {/* Header */}
+      <div ref={headerRef} className="border-b border-border pb-8">
+        <div className="grid gap-6 md:grid-cols-[1fr_22rem] md:items-end md:gap-12">
+          <div>
+            <p className="eyebrow">Service Pricing</p>
+            <h2 className="mt-4 max-w-3xl font-[family-name:var(--font-serif)] text-4xl leading-[1.05] tracking-tight text-foreground sm:text-5xl lg:text-6xl">
+              Transparent Salon Pricing
+            </h2>
+          </div>
+          <p className="text-sm leading-6 text-neutral-400">
+            Clear, honest pricing with no hidden charges. Walk in or book your time online with our master stylists in Patiala.
+          </p>
         </div>
-        <p className="text-sm leading-6 text-neutral-500">A first look at the kinds of services the studio may offer. Menu, pricing, durations, and availability are provisional until confirmed by the owner.</p>
+
+        {/* First-Time Customer Offer Highlight Card */}
+        <div className="mt-8 rounded-sm border border-champagne/40 bg-gradient-to-r from-charcoal-light via-surface to-charcoal-light p-6 shadow-xl">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="rounded-xs bg-champagne px-2 py-0.5 text-[0.68rem] font-bold uppercase tracking-widest text-charcoal">
+                  Welcome Offer
+                </span>
+                <span className="text-xs uppercase tracking-wider text-champagne">First-Time Customers</span>
+              </div>
+              <h3 className="font-[family-name:var(--font-serif)] text-2xl font-bold text-ivory sm:text-3xl">
+                50% OFF ON HAIRCUTS!
+              </h3>
+              <p className="text-sm text-neutral-300">
+                Special welcome offer for first-time customers.
+              </p>
+              <p className="text-xs text-neutral-400 pt-1">
+                Offer applies to haircut only and is available to first-time customers. Ask in salon for details.
+              </p>
+            </div>
+
+            <div className="flex shrink-0 flex-col items-start gap-2 border-t border-border/60 pt-4 sm:border-l sm:border-t-0 sm:pl-6 sm:pt-0 sm:items-end">
+              <div className="flex items-baseline gap-2.5">
+                <span className="text-sm text-neutral-400 line-through">₹100</span>
+                <span className="font-[family-name:var(--font-serif)] text-3xl font-bold text-champagne sm:text-4xl">
+                  ₹50
+                </span>
+              </div>
+              <span className="text-[0.72rem] text-neutral-400">First visit haircut price</span>
+              <Link href="/book" className="btn-primary mt-1 text-xs">
+                Claim Welcome Haircut <span aria-hidden="true">↗</span>
+              </Link>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div ref={gridRef} className="grid gap-x-5 gap-y-9 sm:grid-cols-2 lg:grid-cols-4">
-        {serviceHighlights.map((item) => (
-          <article key={item.number} className="group min-w-0">
-            <Link href="/book" className="block focus-visible:outline-offset-4" aria-label={`Send an appointment request about ${item.title}`}>
-              <div className="relative aspect-[4/5] overflow-hidden bg-elevated">
-                <Image
-                  src={item.image}
-                  alt={`Illustrative salon photography for ${item.title.toLowerCase()}`}
-                  fill
-                  sizes="(max-width: 640px) 90vw, (max-width: 1024px) 45vw, 23vw"
-                  className="object-cover transition-transform duration-700 group-hover:scale-[1.035]"
-                />
-                <span className="absolute bottom-3 left-3 border border-white/25 bg-background/75 px-2 py-1 text-[0.7rem] uppercase tracking-[0.12em] text-foreground">Illustrative image</span>
+      {/* 4 Core Verified Pricing Cards */}
+      <div>
+        <div className="mb-6 flex items-center justify-between">
+          <h3 className="font-[family-name:var(--font-serif)] text-2xl text-foreground">
+            Featured Core Services
+          </h3>
+          <span className="text-xs text-neutral-400">All prices in Indian Rupees (₹)</span>
+        </div>
+
+        <div ref={gridRef} className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          {verifiedCorePrices.map((item) => (
+            <article
+              key={item.id}
+              className="flex flex-col justify-between rounded-sm border border-border bg-surface p-6 transition-all duration-300 hover:border-champagne/60 hover:shadow-lg"
+            >
+              <div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono text-xs text-champagne">{item.duration}</span>
+                  {item.badge && (
+                    <span className="rounded-xs bg-champagne/10 px-2 py-0.5 text-[0.65rem] font-semibold text-champagne border border-champagne/25">
+                      {item.badge}
+                    </span>
+                  )}
+                </div>
+
+                <h4 className="mt-3 font-[family-name:var(--font-serif)] text-xl font-bold tracking-wide text-ivory sm:text-2xl">
+                  {item.name}
+                </h4>
+
+                <p className="mt-2 text-xs leading-5 text-neutral-300">
+                  {item.description}
+                </p>
               </div>
-              <div className="mt-4 flex items-baseline justify-between gap-3 border-b border-border pb-3">
-                <h3 className="text-xl sm:text-2xl">{item.title}</h3>
-                <span className="text-lg text-champagne transition-transform group-hover:translate-x-1" aria-hidden="true">↗</span>
+
+              <div className="mt-6 border-t border-border/80 pt-4">
+                <div className="flex items-baseline justify-between">
+                  <div>
+                    <span className="font-[family-name:var(--font-serif)] text-3xl font-bold text-champagne tabular-nums sm:text-4xl">
+                      {item.priceDisplay}
+                    </span>
+                    {item.firstTimePrice && (
+                      <span className="ml-2 text-xs text-champagne-light font-semibold">
+                        (First visit: {item.firstTimePrice})
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <p className="mt-1 text-[0.7rem] text-neutral-400">
+                  {item.note}
+                </p>
+
+                <Link
+                  href="/book"
+                  className="mt-4 flex min-h-[40px] w-full items-center justify-center border border-border bg-charcoal px-3 py-2 text-xs font-semibold uppercase tracking-wider text-neutral-200 transition-colors hover:border-champagne hover:bg-champagne hover:text-charcoal"
+                >
+                  Book Service <span aria-hidden="true" className="ml-1">↗</span>
+                </Link>
               </div>
-              <p className="mt-3 text-sm leading-6 text-neutral-500">{item.description}</p>
-              <p className="mt-3 text-[0.7rem] uppercase tracking-[0.1em] text-neutral-500">Ask about availability and pricing</p>
-            </Link>
-          </article>
-        ))}
+            </article>
+          ))}
+        </div>
+      </div>
+
+      {/* Additional Salon Services from Google Business Profile */}
+      <div className="rounded-sm border border-border bg-surface p-6 sm:p-8">
+        <div className="border-b border-border pb-4">
+          <p className="eyebrow text-champagne">Full Service Menu</p>
+          <h3 className="mt-2 font-[family-name:var(--font-serif)] text-2xl font-bold text-ivory">
+            Additional Salon &amp; Academy Services
+          </h3>
+          <p className="mt-1 text-xs text-neutral-300">
+            For specialized services without confirmed fixed pricing, custom consultation is provided at our Patiala studio.
+          </p>
+        </div>
+
+        <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {additionalSalonServices.map((serviceName) => (
+            <div
+              key={serviceName}
+              className="flex items-center justify-between rounded-sm border border-border/80 bg-charcoal/70 p-3.5 transition-colors hover:border-champagne/60"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="h-1.5 w-1.5 rounded-full bg-champagne shrink-0" aria-hidden="true" />
+                <span className="text-sm font-semibold tracking-wide text-ivory sm:text-base">
+                  {serviceName}
+                </span>
+              </div>
+              <span className="ml-3 shrink-0 rounded-xs bg-charcoal px-2.5 py-1 text-[0.72rem] font-medium text-champagne-light border border-champagne/30">
+                Ask in salon for pricing
+              </span>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-border pt-4 text-xs text-neutral-400">
+          <span>Walk-ins welcome during salon hours · Consultation free with any booking</span>
+          <a
+            href="https://wa.me/919917953267"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-champagne underline decoration-champagne/40 underline-offset-4 hover:decoration-champagne"
+          >
+            Enquire about pricing on WhatsApp →
+          </a>
+        </div>
       </div>
     </div>
   );

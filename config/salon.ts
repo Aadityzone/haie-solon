@@ -1,32 +1,23 @@
 /**
- * Central salon configuration
- * ============================
- * Business details in one place. Update this file when the client confirms
- * official information. Values marked [PLACEHOLDER] must be replaced before
- * launch.
- *
- * The service catalogue deliberately does NOT live here: services are owned
- * rows in the database, seeded from `config/service-catalogue.ts` and managed
- * from the owner dashboard. Keeping a second hardcoded copy of the menu in this
- * file is what caused prices to disagree across pages.
+ * Central salon configuration — SALMAN UNISEX HAIR SALOON & ACADEMY
+ * ===================================================================
+ * All business details in one place. The service catalogue lives in
+ * config/service-catalogue.ts and the database — not here.
  */
 
 export const salonConfig = {
-  /** [PLACEHOLDER] — Replace with the official salon name once confirmed */
-  name: "Your Salon Name",
-  tagline: "Hair Studio",
+  name: "Salman Unisex Hair Saloon & Academy",
+  nameShort: "Salman Salon",
+  tagline: "Unisex Hair Saloon & Academy",
   description:
-    "A welcoming hair studio for considered styling and personal care. Salon story and location details are awaiting confirmation.",
+    "Professional grooming, modern hairstyles and expert salon services at Salman Unisex Hair Saloon & Academy in Patiala, Punjab. Walk in or book an appointment.",
 
   contact: {
-    phone: "+916280866359",
-    /** Formatted display version */
-    phoneDisplay: "+91 62808 66359",
-    /** WhatsApp link with pre-filled message */
+    phone: "+919917953267",
+    phoneDisplay: "+91 99179 53267",
     whatsappUrl:
-      "https://wa.me/916280866359?text=Hello%2C%20I%20would%20like%20to%20enquire%20about%20your%20salon%20services%20and%20appointment%20availability.",
-    /** [PLACEHOLDER] — Add real email when available */
-    email: "",
+      "https://wa.me/919917953267?text=Hello%2C%20I%20would%20like%20to%20enquire%20about%20your%20salon%20services%20and%20appointment%20availability.",
+    email: "Salmanmalik29452@gmail.com",
   },
 
   location: {
@@ -34,37 +25,119 @@ export const salonConfig = {
     state: "Punjab",
     pincode: "147002",
     country: "India",
-    /** [PLACEHOLDER] — Replace with full verified street address */
-    fullAddress: "Location details to be confirmed",
-    /** [PLACEHOLDER] — Replace with verified Google Maps link */
+    fullAddress:
+      "Plot No. 11, Man Dhaba Gali, Opposite Bawa PG, Near Punjabi University, Patiala, Punjab, India – 147002",
     googleMapsUrl:
-      "https://www.google.com/maps/search/salon+patiala+punjab+147002",
+      "https://www.google.com/maps/place/30%C2%B021%2721.0%22N+76%C2%B027%2722.2%22E/@30.3558333,76.4561667,17z",
+    directionsUrl:
+      "https://www.google.com/maps/dir/?api=1&destination=30.3558333%2C76.4561667",
+    latitude: 30.3558333,
+    longitude: 76.4561667,
   },
 
   hours: {
-    /** [PLACEHOLDER] — Replace with confirmed opening hours */
     confirmed: false,
     schedule: [
-      { days: "Monday – Saturday", time: "To be confirmed" },
-      { days: "Sunday", time: "To be confirmed" },
+      { days: "Monday – Saturday", time: "10:00 AM – 8:00 PM" },
+      { days: "Sunday", time: "10:00 AM – 7:00 PM" },
     ],
   },
 
   social: {
-    /** [PLACEHOLDER] — Add real social handles when provided */
-    instagram: "",
+    instagram: "https://www.instagram.com/salman_18999/",
+    instagramHandle: "@salman_18999",
     facebook: "",
   },
 
-  /** Owner name — for internal reference, not necessarily displayed */
-  ownerName: "Reehan Qureshi",
+  /**
+   * Google Reviews configuration
+   */
+  reviews: {
+    googleReviewUrl:
+      process.env.NEXT_PUBLIC_GOOGLE_REVIEW_URL ||
+      "https://g.page/r/CZcCqUhCtvxeECE/review",
+    confirmed: true,
+  },
+
+  ownerName: "Salman Malik",
 } as const;
 
 /**
- * Gallery images
- * [PLACEHOLDER] — Replace with actual salon photographs.
- * Current files are illustrative and are labelled as such in the UI.
+ * Verified Core Pricing for Salman Unisex Hair Saloon & Academy
+ * - Haircut: ₹100 (First-time customers: ₹50)
+ * - Beard Grooming: ₹50
+ * - Haircut + Beard Combo: ₹150 (simply combined price ₹100 + ₹50, not a discount)
+ * - O3+ D-Tan Pack: ₹200
  */
+export const verifiedCorePrices = [
+  {
+    id: "haircut",
+    name: "Haircut",
+    priceRupees: 100,
+    priceDisplay: "₹100",
+    firstTimePrice: "₹50",
+    duration: "30 min",
+    description: "Professional haircut tailored to your personal style and face shape.",
+    badge: "50% Off First Visit (₹50)",
+    note: "Regular ₹100 · First-time customers ₹50",
+  },
+  {
+    id: "beard",
+    name: "Beard Grooming",
+    priceRupees: 50,
+    priceDisplay: "₹50",
+    firstTimePrice: null,
+    duration: "20 min",
+    description: "Sharp line-up, trimming, precision edging, and beard conditioning.",
+    badge: null,
+    note: "Standalone beard service",
+  },
+  {
+    id: "combo",
+    name: "Haircut + Beard Combo",
+    priceRupees: 150,
+    priceDisplay: "₹150",
+    firstTimePrice: null,
+    duration: "45 min",
+    description: "Combined haircut and beard grooming session in one appointment.",
+    badge: "₹100 + ₹50 Combined",
+    note: "Combined standard price (₹100 + ₹50). Not discounted.",
+  },
+  {
+    id: "dtan",
+    name: "O3+ D-Tan Pack",
+    priceRupees: 200,
+    priceDisplay: "₹200",
+    firstTimePrice: null,
+    duration: "30 min",
+    description: "Professional O3+ de-tan treatment pack for bright, refreshed, tan-free skin.",
+    badge: "O3+ Professional",
+    note: "Specialized de-tan skin treatment",
+  },
+] as const;
+
+/**
+ * Additional services from Google Business Profile
+ * Display: "Ask in salon for pricing"
+ */
+export const additionalSalonServices = [
+  "Hair Colouring",
+  "Hairstyling",
+  "Blowdry",
+  "Body Waxing",
+  "Children's Cuts",
+  "Curly Hair Care",
+  "Dreadlocks",
+  "Hair Extensions",
+  "Hair Highlighting",
+  "Hair Straightening",
+  "Hair Treatments",
+  "Keratin Treatments",
+  "Shampoo & Conditioning",
+  "Shaving",
+] as const;
+
+/** Gallery images */
 export const galleryImages = [
   {
     id: 1,
@@ -93,7 +166,7 @@ export const galleryImages = [
   {
     id: 5,
     src: "/images/gallery/gallery-5.jpg",
-    alt: "Elegant bridal hair styling",
+    alt: "Occasion hair styling and finishing",
     category: "styling",
   },
   {
@@ -104,39 +177,12 @@ export const galleryImages = [
   },
 ] as const;
 
-/** Provisional homepage categories: confirm the real menu before publication. */
-export const serviceHighlights = [
-  {
-    number: "01",
-    title: "Cuts & styling",
-    description: "A considered shape, a fresh finish, or a style that feels unmistakably your own.",
-    image: "/images/gallery/gallery-2.jpg",
-  },
-  {
-    number: "02",
-    title: "Colour & highlights",
-    description: "From subtle dimension to a considered change in tone, tailored through consultation.",
-    image: "/images/gallery/gallery-4.jpg",
-  },
-  {
-    number: "03",
-    title: "Care & treatments",
-    description: "Thoughtful care for your hair and scalp, with the right approach confirmed in person.",
-    image: "/images/gallery/gallery-6.jpg",
-  },
-  {
-    number: "04",
-    title: "Finishing touches",
-    description: "A smooth blow-dry or a special-occasion finish, shaped around your plans.",
-    image: "/images/gallery/gallery-5.jpg",
-  },
-] as const;
-
 /** Navigation items */
 export const navItems = [
   { label: "Home", href: "#home" },
   { label: "Services", href: "#services" },
-  { label: "Our Work", href: "#gallery" },
+  { label: "Gallery", href: "#gallery" },
   { label: "About", href: "#about" },
-  { label: "Contact", href: "#contact" },
+  { label: "Reviews", href: "#reviews" },
+  { label: "Location", href: "#location" },
 ] as const;

@@ -106,7 +106,7 @@ export default async function ServiceMenu() {
           <section key={group.id} aria-labelledby={`menu-${group.id}`}>
             <h4
               id={`menu-${group.id}`}
-              className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-champagne"
+              className="text-xs font-bold uppercase tracking-[0.18em] text-champagne"
             >
               {group.name}
             </h4>
@@ -122,16 +122,28 @@ export default async function ServiceMenu() {
                   <div className="min-w-0 flex-1">
                     <div className="flex min-w-0 items-start justify-between gap-5">
                       <div className="min-w-0">
-                        <p className="text-base text-foreground">{service.name}</p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-base sm:text-lg font-semibold text-ivory tracking-wide">{service.name}</p>
+                          {service.name.toLowerCase() === "haircut" && (
+                            <span className="inline-flex items-center rounded-sm bg-champagne/15 px-1.5 py-0.5 text-[0.68rem] font-semibold text-champagne border border-champagne/30">
+                              First-time offer: ₹50
+                            </span>
+                          )}
+                          {service.name.toLowerCase().includes("combo") && (
+                            <span className="inline-flex items-center rounded-sm bg-surface px-1.5 py-0.5 text-[0.68rem] font-medium text-champagne-light border border-border">
+                              ₹100 + ₹50 combined
+                            </span>
+                          )}
+                        </div>
                         {service.description && (
-                          <p className="mt-1 text-sm leading-6 text-neutral-500">{service.description}</p>
+                          <p className="mt-1 text-sm leading-6 text-neutral-300">{service.description}</p>
                         )}
                       </div>
                       <div className="shrink-0 text-right">
-                        <p className="text-sm text-foreground tabular-nums">
-                          {service.priceRupees === null ? "On request" : formatRupees(service.priceRupees)}
+                        <p className={`tabular-nums ${service.priceRupees === null ? "text-xs sm:text-sm font-medium text-neutral-300" : "text-base sm:text-lg font-bold text-champagne"}`}>
+                          {service.priceRupees === null ? "Ask in salon for pricing" : formatRupees(service.priceRupees)}
                         </p>
-                        <p className="mt-0.5 text-xs text-neutral-500 tabular-nums">
+                        <p className="mt-0.5 text-xs text-neutral-400 tabular-nums">
                           {formatDuration(service.durationMinutes)}
                         </p>
                       </div>

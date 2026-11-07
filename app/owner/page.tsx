@@ -501,7 +501,7 @@ export default function OwnerDashboard() {
                         <div className="min-w-0">
                           <p className="text-sm font-medium">{service.name}</p>
                           <p className="mt-1 text-xs text-neutral-500">
-                            Proposed · {service.durationMinutes} min · {rupees.format(service.proposedPriceRupees)}
+                            Proposed · {service.durationMinutes} min · {service.proposedPriceRupees == null ? "Ask in salon" : rupees.format(service.proposedPriceRupees)}
                           </p>
                         </div>
                         <button type="button" disabled={exists || busy} onClick={() => void addProposedService(service.id)} className="btn-secondary min-h-11 px-3 text-xs">

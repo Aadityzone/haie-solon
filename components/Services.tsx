@@ -12,9 +12,8 @@ export default function Services() {
         {/* The primary action of this section, above the menu so it is reachable
             without reading the whole price list first. */}
         <div className="mt-10 flex flex-col gap-4 border-t border-border pt-6 sm:flex-row sm:items-center sm:justify-between">
-          <p className="max-w-3xl text-xs leading-5 text-neutral-500">
-            The four directions above are an editorial overview, not a price list. Photography is illustrative and is
-            not presented as this salon&apos;s own portfolio.
+          <p className="max-w-3xl text-xs leading-5 text-neutral-400">
+            Transparent pricing with no hidden charges. Appointments can be booked online or requested directly at our Patiala studio.
           </p>
           <Link href="/book" className="btn-primary shrink-0">
             Book an appointment <span aria-hidden="true">↗</span>

@@ -576,9 +576,9 @@ export default function BookingWizard({
             <ul className="mt-2 divide-y divide-border border-y border-border">
               {(created.services ?? []).map((service) => (
                 <li key={`${service.serviceId}-${service.id}`} className="flex flex-wrap items-baseline justify-between gap-2 py-2.5 text-sm">
-                  <span className="min-w-0 text-foreground">{service.serviceName}</span>
-                  <span className="shrink-0 text-neutral-500 tabular-nums">
-                    {formatDuration(service.durationMinutes)} · {service.priceRupees === null ? "on request" : formatRupees(service.priceRupees)}
+                  <span className="min-w-0 font-medium text-ivory">{service.serviceName}</span>
+                  <span className="shrink-0 text-neutral-400 tabular-nums">
+                    {formatDuration(service.durationMinutes)} · {service.priceRupees === null ? "Ask in salon for pricing" : formatRupees(service.priceRupees)}
                   </span>
                 </li>
               ))}
@@ -877,10 +877,10 @@ export default function BookingWizard({
                 <ul className="space-y-1">
                   {selectedServices.map((service) => (
                     <li key={service.id} className="flex flex-wrap items-baseline justify-between gap-2">
-                      <span className="min-w-0">{service.name}</span>
-                      <span className="shrink-0 text-neutral-500 tabular-nums">
+                      <span className="min-w-0 font-medium text-ivory">{service.name}</span>
+                      <span className="shrink-0 text-neutral-400 tabular-nums">
                         {formatDuration(service.durationMinutes)} ·{" "}
-                        {service.priceRupees === null ? "on request" : formatRupees(service.priceRupees)}
+                        {service.priceRupees === null ? "Ask in salon for pricing" : formatRupees(service.priceRupees)}
                       </span>
                     </li>
                   ))}

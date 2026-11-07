@@ -61,7 +61,7 @@ export default function ServiceHighlights() {
             </h2>
           </div>
           <p className="text-sm leading-6 text-neutral-400">
-            Clear, honest pricing with no hidden charges. Walk in or book your time online with our master stylists in Patiala.
+            Clear, honest pricing with no hidden charges. Walk in or book your haircut, beard grooming, or hair styling session online with our master stylists near Punjabi University, Patiala.
           </p>
         </div>
       </div>
@@ -133,7 +133,7 @@ export default function ServiceHighlights() {
             Additional Salon &amp; Academy Services
           </h3>
           <p className="mt-1 text-xs text-neutral-300">
-            For specialized services without confirmed fixed pricing, custom consultation is provided at our Patiala studio.
+            For hair colouring, hair styling, treatments, and academy courses without confirmed fixed pricing, custom consultation is provided at our salon near Punjabi University, Patiala.
           </p>
         </div>
 

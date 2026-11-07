@@ -42,9 +42,10 @@ export default function AnimatedMarqueeHero() {
           >
             Your Style.{" "}
             <span className="text-champagne">Your Identity.</span>
+            <span className="sr-only"> — Salman Unisex Hair Saloon &amp; Academy, Patiala</span>
           </h1>
           <p data-hero-copy className="mt-6 max-w-lg text-base leading-7 text-neutral-400 sm:text-lg sm:leading-8">
-            Professional grooming, modern hairstyles and expert salon services — designed around your personality at Salman Unisex Hair Saloon &amp; Academy, Patiala.
+            Looking for a unisex salon near Punjabi University, Patiala? Visit Salman Unisex Hair Saloon &amp; Academy for precision haircuts, beard grooming, modern hair styling, and professional hair care.
           </p>
 
           {/* Prominent Action & Location Buttons */}
@@ -91,9 +92,9 @@ export default function AnimatedMarqueeHero() {
           <div className="relative aspect-[4/3] overflow-hidden bg-elevated sm:aspect-[1.16/1]">
             <Image
               src="/images/hero.jpg"
-              alt="Illustrative cinematic salon interior; not a verified photograph of Salman Salon"
+              alt="Salman Unisex Hair Saloon & Academy styling chairs and interior in Patiala (illustrative imagery)"
               fill
-              preload
+              priority
               sizes="(max-width: 1024px) 100vw, 56vw"
               className="object-cover"
             />

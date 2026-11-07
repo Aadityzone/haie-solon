@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Navbar from "@/components/Navbar";
 import AnimatedMarqueeHero from "@/components/ui/hero-3";
 import Services from "@/components/Services";
@@ -8,6 +9,15 @@ import Instagram from "@/components/Instagram";
 import GoogleReviews from "@/components/GoogleReviews";
 import Contact from "@/components/Contact";
 import Footer from "@/components/Footer";
+
+export const metadata: Metadata = {
+  title: "Salman Unisex Hair Saloon & Academy | Unisex Salon in Patiala",
+  description:
+    "Looking for a unisex salon near Punjabi University, Patiala? Visit Salman Unisex Hair Saloon & Academy for haircuts, beard grooming, hairstyling and professional hair care.",
+  alternates: {
+    canonical: "/",
+  },
+};
 
 /**
  * The homepage renders the owner-configured service catalogue.

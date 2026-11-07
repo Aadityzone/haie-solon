@@ -16,7 +16,7 @@ export default function Contact() {
           </h2>
           <div className="mx-auto mt-4 h-px w-14 bg-champagne" />
           <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-neutral-400">
-            Conveniently located near Punjabi University. Walk in during salon hours or request your appointment online.
+            Conveniently located near Punjabi University, Patiala. Walk in during salon hours or request your appointment online for haircuts, beard grooming, and professional hair care.
           </p>
         </div>
 

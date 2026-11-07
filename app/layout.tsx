@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import MotionProvider from "@/components/MotionProvider";
 import MobileActionBar from "@/components/MobileActionBar";
+import { SITE_ORIGIN, getLocalBusinessSchema } from "@/lib/seo";
 
 /**
  * `viewportFit: "cover"` lets the page paint into the notch and home-indicator
@@ -29,39 +30,70 @@ export const viewport: Viewport = {
   interactiveWidget: "resizes-content",
 };
 
+const defaultTitle = "Salman Unisex Hair Saloon & Academy | Unisex Salon in Patiala";
+const defaultDescription =
+  "Looking for a unisex salon near Punjabi University, Patiala? Visit Salman Unisex Hair Saloon & Academy for haircuts, beard grooming, hairstyling and professional hair care.";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_ORIGIN),
   title: {
-    default: "Salman Unisex Hair Saloon & Academy — Patiala, Punjab",
+    default: defaultTitle,
     template: "%s | Salman Unisex Hair Saloon & Academy",
   },
-  description:
-    "Professional grooming, modern hairstyles and expert salon services at Salman Unisex Hair Saloon & Academy. Located near Punjabi University, Patiala, Punjab. Book an appointment online.",
+  description: defaultDescription,
+  applicationName: "Salman Unisex Hair Saloon & Academy",
+  authors: [{ name: "Salman Malik" }],
+  generator: "Next.js",
   keywords: [
-    "salon",
-    "unisex salon",
-    "hair salon",
-    "beauty salon",
-    "Patiala",
-    "Punjab",
-    "haircut",
-    "grooming",
-    "beard trim",
-    "hair colour",
-    "hair academy",
-    "Salman salon",
-    "salon near Punjabi University",
+    "Salman Unisex Hair Saloon Patiala",
+    "Unisex Salon in Patiala",
+    "Unisex Salon near Punjabi University",
+    "Haircut near Punjabi University Patiala",
+    "Beard Grooming in Patiala",
+    "Hair Styling in Patiala",
+    "Hair Colouring in Patiala",
+    "Hair Academy Patiala",
+    "Salman Salon Patiala",
+    "Salon Patiala Punjab",
   ],
+  alternates: {
+    canonical: "/",
+  },
   openGraph: {
-    title: "Salman Unisex Hair Saloon & Academy — Patiala",
-    description:
-      "Professional grooming, modern hairstyles and expert salon services in Patiala, Punjab.",
-    type: "website",
-    locale: "en_IN",
+    title: defaultTitle,
+    description: defaultDescription,
+    url: SITE_ORIGIN,
     siteName: "Salman Unisex Hair Saloon & Academy",
+    locale: "en_IN",
+    type: "website",
+    images: [
+      {
+        url: "/images/hero.jpg",
+        width: 1200,
+        height: 630,
+        alt: "Salman Unisex Hair Saloon & Academy in Patiala, Punjab",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: defaultTitle,
+    description: defaultDescription,
+    images: ["/images/hero.jpg"],
   },
   robots: {
     index: true,
     follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+  verification: {
+    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || process.env.GOOGLE_SITE_VERIFICATION,
   },
 };
 
@@ -70,42 +102,16 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const jsonLd = getLocalBusinessSchema();
+
   return (
-    <html lang="en" className="scroll-smooth" data-scroll-behavior="smooth">
+    <html lang="en-IN" className="scroll-smooth" data-scroll-behavior="smooth">
       <head>
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "HairSalon",
-              name: "Salman Unisex Hair Saloon & Academy",
-              description:
-                "Professional grooming, modern hairstyles and expert salon services in Patiala, Punjab.",
-              telephone: "+919917953267",
-              email: "Salmanmalik29452@gmail.com",
-              address: {
-                "@type": "PostalAddress",
-                streetAddress:
-                  "Plot No. 11, Man Dhaba Gali, Opposite Bawa PG, Near Punjabi University",
-                addressLocality: "Patiala",
-                addressRegion: "Punjab",
-                postalCode: "147002",
-                addressCountry: "IN",
-              },
-              geo: {
-                "@type": "GeoCoordinates",
-                latitude: 30.3558333,
-                longitude: 76.4561667,
-              },
-              url: "https://your-domain.com",
-              sameAs: ["https://www.instagram.com/salman_18999/"],
-              priceRange: "₹₹",
-              currenciesAccepted: "INR",
-              paymentAccepted: "Cash",
-              image: "https://your-domain.com/images/hero.jpg",
-            }),
+            __html: JSON.stringify(jsonLd),
           }}
         />
       </head>

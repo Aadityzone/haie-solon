@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
@@ -5,10 +6,19 @@ import Footer from "@/components/Footer";
 import BookingStart from "@/components/booking/BookingStart";
 import { salonConfig } from "@/config/salon";
 
-export const metadata = {
-  title: "Book an appointment",
+export const metadata: Metadata = {
+  title: "Book an Appointment",
   description:
-    "Choose your services, pick a time that suits you, and send an appointment request to the salon. Every request is reviewed by the salon before it is confirmed.",
+    "Book an appointment for haircuts, beard grooming, hair treatments or styling at Salman Unisex Hair Saloon & Academy near Punjabi University, Patiala.",
+  alternates: {
+    canonical: "/book",
+  },
+  openGraph: {
+    title: "Book an Appointment | Salman Unisex Hair Saloon & Academy",
+    description:
+      "Select your salon services and preferred date/time. Master stylists at Salman Unisex Hair Saloon & Academy in Patiala review and confirm your request.",
+    url: "/book",
+  },
 };
 
 /**

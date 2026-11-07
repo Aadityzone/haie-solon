@@ -5,7 +5,7 @@ import { salonConfig } from "@/config/salon";
  * Fallback to the currently assigned production deployment origin.
  */
 export const SITE_ORIGIN = (
-  process.env.NEXT_PUBLIC_SITE_URL?.trim() || "https://reehan-salon-demo.vercel.app"
+  process.env.NEXT_PUBLIC_SITE_URL?.trim() || "https://salman-unisex-salon.vercel.app"
 ).replace(/\/+$/, "");
 
 /**

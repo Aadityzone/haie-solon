@@ -31,7 +31,7 @@ export default function AnimatedMarqueeHero() {
   }, []);
 
   return (
-    <section ref={rootRef} id="home" aria-labelledby="hero-title" className="relative overflow-hidden bg-background pt-36 sm:pt-40 lg:pt-44">
+    <section ref={rootRef} id="home" aria-labelledby="hero-title" className="relative overflow-hidden bg-background pt-28 sm:pt-32 lg:pt-36">
       <div className="mx-auto grid max-w-[1440px] items-center gap-10 px-5 pb-12 sm:px-8 lg:grid-cols-[0.9fr_1.1fr] lg:gap-14 lg:px-12 lg:pb-16">
         <div className="relative z-10 max-w-2xl py-4 lg:py-12">
           <p data-hero-copy className="eyebrow">Patiala&apos;s Premier Unisex Salon &amp; Academy</p>

@@ -1,4 +1,4 @@
-﻿import { getDb } from "../db";
+import { getDb } from "../db";
 import crypto from "node:crypto";
 
 export interface NotificationPayload {

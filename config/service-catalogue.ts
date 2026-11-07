@@ -5,7 +5,7 @@
  * This is the single source of truth for the salon service catalogue.
  *
  * Verified Core Pricing:
- * - Haircut: ₹100 (First-time customers: ₹50)
+ * - Haircut: ₹100
  * - Beard Grooming: ₹50
  * - Haircut + Beard Combo: ₹150 (₹100 + ₹50 combined price, not discounted)
  * - O3+ D-Tan Pack: ₹200
@@ -36,7 +36,7 @@ export const proposedCatalogue: ProposedService[] = [
   {
     id: "svc-haircut",
     name: "Haircut",
-    description: "Professional haircut tailored to your personal style. Special first-time customer offer: ₹50.",
+    description: "Professional haircut tailored to your personal style and facial features.",
     categoryId: "core-cuts",
     categoryName: "Haircut & Grooming",
     proposedPriceRupees: 100,

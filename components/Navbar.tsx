@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { navItems, salonConfig } from "@/config/salon";
-import AnnouncementBar from "./AnnouncementBar";
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
@@ -59,7 +58,6 @@ export default function Navbar() {
     // collapsed the full-screen mobile menu into the height of the bar. The blur
     // lives on the inner bar so the menu stays a sibling of it, not a child.
     <header className="fixed inset-x-0 top-0 z-50">
-      <AnnouncementBar />
       <div className={`safe-x safe-top border-b backdrop-blur-md transition-colors duration-300 ${scrolled ? "border-border bg-background/95" : "border-border/60 bg-background/80"}`}>
         <nav aria-label="Main navigation" className="mx-auto flex max-w-[1440px] items-center justify-between gap-3 px-5 py-3 sm:px-8 lg:px-12">
           <Link href="/#home" onClick={close} className="flex min-h-11 min-w-0 flex-col justify-center leading-none focus-visible:outline-offset-8">

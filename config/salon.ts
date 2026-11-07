@@ -64,51 +64,47 @@ export const salonConfig = {
 
 /**
  * Verified Core Pricing for Salman Unisex Hair Saloon & Academy
- * - Haircut: ₹100 (First-time customers: ₹50)
+ * - Haircut: ₹100
  * - Beard Grooming: ₹50
  * - Haircut + Beard Combo: ₹150 (simply combined price ₹100 + ₹50, not a discount)
  * - O3+ D-Tan Pack: ₹200
  */
 export const verifiedCorePrices = [
   {
-    id: "haircut",
+    id: "svc-haircut",
     name: "Haircut",
     priceRupees: 100,
     priceDisplay: "₹100",
-    firstTimePrice: "₹50",
     duration: "30 min",
     description: "Professional haircut tailored to your personal style and face shape.",
-    badge: "50% Off First Visit (₹50)",
-    note: "Regular ₹100 · First-time customers ₹50",
+    badge: null,
+    note: "Tailored haircut and styling finish",
   },
   {
-    id: "beard",
+    id: "svc-beard-grooming",
     name: "Beard Grooming",
     priceRupees: 50,
     priceDisplay: "₹50",
-    firstTimePrice: null,
     duration: "20 min",
     description: "Sharp line-up, trimming, precision edging, and beard conditioning.",
     badge: null,
     note: "Standalone beard service",
   },
   {
-    id: "combo",
+    id: "svc-haircut-beard-combo",
     name: "Haircut + Beard Combo",
     priceRupees: 150,
     priceDisplay: "₹150",
-    firstTimePrice: null,
     duration: "45 min",
     description: "Combined haircut and beard grooming session in one appointment.",
     badge: "₹100 + ₹50 Combined",
     note: "Combined standard price (₹100 + ₹50). Not discounted.",
   },
   {
-    id: "dtan",
+    id: "svc-o3-dtan-pack",
     name: "O3+ D-Tan Pack",
     priceRupees: 200,
     priceDisplay: "₹200",
-    firstTimePrice: null,
     duration: "30 min",
     description: "Professional O3+ de-tan treatment pack for bright, refreshed, tan-free skin.",
     badge: "O3+ Professional",

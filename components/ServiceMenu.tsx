@@ -124,11 +124,6 @@ export default async function ServiceMenu() {
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="text-base sm:text-lg font-semibold text-ivory tracking-wide">{service.name}</p>
-                          {service.name.toLowerCase() === "haircut" && (
-                            <span className="inline-flex items-center rounded-sm bg-champagne/15 px-1.5 py-0.5 text-[0.68rem] font-semibold text-champagne border border-champagne/30">
-                              First-time offer: ₹50
-                            </span>
-                          )}
                           {service.name.toLowerCase().includes("combo") && (
                             <span className="inline-flex items-center rounded-sm bg-surface px-1.5 py-0.5 text-[0.68rem] font-medium text-champagne-light border border-border">
                               ₹100 + ₹50 combined

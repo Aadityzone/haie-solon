@@ -64,42 +64,6 @@ export default function ServiceHighlights() {
             Clear, honest pricing with no hidden charges. Walk in or book your time online with our master stylists in Patiala.
           </p>
         </div>
-
-        {/* First-Time Customer Offer Highlight Card */}
-        <div className="mt-8 rounded-sm border border-champagne/40 bg-gradient-to-r from-charcoal-light via-surface to-charcoal-light p-6 shadow-xl">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <span className="rounded-xs bg-champagne px-2 py-0.5 text-[0.68rem] font-bold uppercase tracking-widest text-charcoal">
-                  Welcome Offer
-                </span>
-                <span className="text-xs uppercase tracking-wider text-champagne">First-Time Customers</span>
-              </div>
-              <h3 className="font-[family-name:var(--font-serif)] text-2xl font-bold text-ivory sm:text-3xl">
-                50% OFF ON HAIRCUTS!
-              </h3>
-              <p className="text-sm text-neutral-300">
-                Special welcome offer for first-time customers.
-              </p>
-              <p className="text-xs text-neutral-400 pt-1">
-                Offer applies to haircut only and is available to first-time customers. Ask in salon for details.
-              </p>
-            </div>
-
-            <div className="flex shrink-0 flex-col items-start gap-2 border-t border-border/60 pt-4 sm:border-l sm:border-t-0 sm:pl-6 sm:pt-0 sm:items-end">
-              <div className="flex items-baseline gap-2.5">
-                <span className="text-sm text-neutral-400 line-through">₹100</span>
-                <span className="font-[family-name:var(--font-serif)] text-3xl font-bold text-champagne sm:text-4xl">
-                  ₹50
-                </span>
-              </div>
-              <span className="text-[0.72rem] text-neutral-400">First visit haircut price</span>
-              <Link href="/book" className="btn-primary mt-1 text-xs">
-                Claim Welcome Haircut <span aria-hidden="true">↗</span>
-              </Link>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* 4 Core Verified Pricing Cards */}
@@ -142,11 +106,6 @@ export default function ServiceHighlights() {
                     <span className="font-[family-name:var(--font-serif)] text-3xl font-bold text-champagne tabular-nums sm:text-4xl">
                       {item.priceDisplay}
                     </span>
-                    {item.firstTimePrice && (
-                      <span className="ml-2 text-xs text-champagne-light font-semibold">
-                        (First visit: {item.firstTimePrice})
-                      </span>
-                    )}
                   </div>
                 </div>
 
@@ -155,7 +114,7 @@ export default function ServiceHighlights() {
                 </p>
 
                 <Link
-                  href="/book"
+                  href={`/book?service=${item.id}`}
                   className="mt-4 flex min-h-[40px] w-full items-center justify-center border border-border bg-charcoal px-3 py-2 text-xs font-semibold uppercase tracking-wider text-neutral-200 transition-colors hover:border-champagne hover:bg-champagne hover:text-charcoal"
                 >
                   Book Service <span aria-hidden="true" className="ml-1">↗</span>
